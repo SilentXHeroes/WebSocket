@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Canvas</title>
+		<style type="text/css">
+			*:not(script):not(head) {
+				margin: 0;
+				padding: 0;
+				display: inline-block;
+			}
+			body, html {
+				width: 100%;
+				height: 100%;
+			}
+			#container {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+			}
+			canvas {
+				border: 1px solid black;
+			}
+			#colors {
+				display: flex;
+			}
+			#colors > div {
+				width: 20px;
+				height: 20px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="container">
+			<canvas id="canvas" width="500" height="500"></canvas>
+			<div id="colors"></div>
+			<button id="clear">Effacer le tableau</button>
+			<button id="erase">Gomme</button>
+		</div>
+		<script type="text/javascript" src="/socket.io/socket.io.js"></script>
+		<script type="text/javascript">
+			var socket 		= io();
+			var container 	= document.getElementById("container");
+			var canvas 		= document.getElementById("canvas");
+			var clear 		= document.getElementById("clear");
+			var erase 		= document.getElementById("erase");
+			var colors		= ["black","red","yellow","blue","purple","pink"];
+			var board 		= canvas.getContext("2d");
+			var draw = {
+				enabled: false,
+				x: 0, 
+				y: 0,
+				px: 0,
+				py: 0,
+				color: 'black',
+				width: 10,
+				erasing: false
+			};
+
+			for(var i in colors) {
+				var color = colors[i];
+				var node = document.createElement("div");
+
+				node.className = color;
+				node.style.backgroundColor = color;
+				node.dataset.color = color;
+				node.addEventListener("click", (e) => {
+					enableErase(false);
+					draw.color = e.target.dataset.color;
+				});
+
+				document.getElementById("colors").appendChild(node);
+			}
+
+			// EVENTS
+
+			erase.addEventListener("click", function() {
+				enableErase(true);
+			});
+
+			clear.addEventListener("click", function() {
+				socket.emit("clear");
+				board.clearRect(0, 0, 500, 500);
+			});
+
+			canvas.addEventListener("mousemove", (e) => {
+				updateMousePosition(e);
+				pencil();
+			});
+			canvas.addEventListener("mousedown", (e) => {
+				draw.enabled = true;
+
+				updateMousePosition(e);
+				circle();
+			});
+			canvas.addEventListener("mouseenter", (e) => {
+				updateMousePosition(e, true);
+			});
+
+			document.addEventListener("mouseup", () => {
+				draw.enabled = false;
+			});
+
+			// SOCKETS
+
+			socket.on("clear", () => {
+				board.clearRect(0,0,500,500);
+			});
+			socket.on("draw", data => {
+				setDraw(data);
+			});
+			socket.on("draws", draws => {
+				for(var i in draws) {
+					setDraw(draws[i]);
+				}
+			});
+
+			function enableErase(enable) {
+				draw.erasing = enable;
+				board.globalCompositeOperation = enable ? "destination-out" : "source-over";
+			}
+
+			function setDraw(data) {
+				enableErase(data.draw.erasing);
+				eval(data.type)(data.draw, false);
+			}
+
+			function circle(fromData = false, enableEmit = true) {	
+
+				if(fromData === false) {
+					fromData = draw;
+				}
+
+				board.beginPath();
+				board.arc(fromData.x, fromData.y, fromData.width / 2, 0, Math.PI * 2);
+				board.fillStyle = fromData.color;
+				board.fill();
+				board.closePath();
+
+				emit("circle", enableEmit);
+			}
+
+			function pencil(fromData = false, enableEmit = true) {
+
+        		if(!draw.enabled && !fromData) {
+        			return;
+        		}
+
+				if(fromData === false) {
+					fromData = draw;
+				}
+
+				board.beginPath();
+		        board.moveTo(fromData.px, fromData.py);
+		        board.lineTo(fromData.x, fromData.y);
+		        board.strokeStyle = fromData.color;
+		        board.lineWidth = fromData.width;
+		        board.lineCap = 'round';http://localhost:8079/
+		        board.stroke();
+		        board.closePath();
+
+				emit("pencil", enableEmit);
+			}
+
+			function updateMousePosition(e, reset = false) {
+				var xPos = e.pageX - (container.offsetLeft - Math.ceil(container.clientWidth / 2));
+        		var yPos = e.pageY - (container.offsetTop - Math.ceil(container.clientHeight / 2));
+
+				draw.px = reset ? xPos : draw.x;
+				draw.py = reset ? yPos : draw.y;
+				draw.x = xPos;
+				draw.y = yPos;
+			}
+
+			function emit(type, enable) {
+				if(enable) {
+					socket.emit("draw", {
+						draw: draw,
+						type: type
+					});
+				}
+			}
+		</script>
+	</body>
+</html>

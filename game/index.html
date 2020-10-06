@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Canvas</title>
+		<style type="text/css">
+			*:not(script):not(head) {
+				margin: 0;
+				padding: 0;
+				display: inline-block;
+			}
+			body, html {
+				width: 100%;
+				height: 100%;
+			}
+			#container {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+			}
+			canvas {
+				border: 1px solid black;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="container">
+			<label>Pseudo: </label>
+			<input id="player" type="text">
+			<label>Dimensions: </label>
+			<input id="width" type="number" min="25" max="100" value="25">
+			<label> x </label>
+			<input id="height" type="number" min="25" max="100" value="25">
+			<button id="play">Jouer</button>
+			<canvas id="canvas" width="1000" height="500"></canvas>
+		</div>
+		<script type="text/javascript" src="/socket.io/socket.io.js"></script>
+		<script type="text/javascript" src="Common.js"></script>
+		<script type="text/javascript" src="Handler.js"></script>
+		<script type="text/javascript" src="Moving.js"></script>
+		<script type="text/javascript" src="Entity.js"></script>
+		<script type="text/javascript" src="Weapon.js"></script>
+		<script type="text/javascript" src="Bullet.js"></script>
+		<script type="text/javascript" src="Plateform.js"></script>
+		<script type="text/javascript" src="Board.js"></script>
+		<script type="module">
+
+			document.addEventListener('contextmenu', (e) => {
+				e.preventDefault();
+				return false;
+			})
+
+			document.getElementById("play").addEventListener("click", (e) => {
+				let infos = {
+					id: Common.socket.id, 
+					name: document.getElementById("player").value,
+					width: document.getElementById("width").value,
+					height: document.getElementById("height").value
+				};
+
+				let player = Common.newElement('Player', infos, true);
+
+				Common.socket.emit("player-connect", player);
+			});
+
+			Common.startGame();
+
+		</script>
+	</body>
+</html>
