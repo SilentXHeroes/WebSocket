@@ -3,8 +3,12 @@ class Moving extends Handler {
 	constructor() {
 		super();
 
-		this.speed = 1;
+		this.speed = Common.calcForFrameRate(5);
+		this.velocity = Common.calcForFrameRate(-15);
+console.log(this.velocity);
 		this.initialSpeed = this.speed;
+
+		console.log(this.speed);
 
 		this.setVelocity(1);
 		this.setWalking(false);
@@ -44,11 +48,11 @@ class Moving extends Handler {
 	}
 	setWallJump(side) {
 		if(!side) {
-			this.setSpeed(this.getSpeed());
+			this.setSpeed(this.speed);
 			this.setWalking(false);
 		}
 		else {
-			// this.setSpeed(this.getSpeed() * -1);
+			// this.setSpeed(this.speed * -1);
 			this.setWalking(true);
 		}
 		this.wallJump = side;
@@ -130,7 +134,7 @@ class Moving extends Handler {
 				}
 
 				this.setCurrentPlateform(false);
-				this.setVelocity(-15);
+				this.setVelocity(this.velocity);
 			}
 		}
 	}
@@ -161,8 +165,8 @@ class Moving extends Handler {
 				this.removeColision();
 			}
 
-			if(walking && this.hasWallJump() && this.getSpeed() < 5 && side === this.hasWallJump()) {
-				this.setSpeed(Math.abs(this.getSpeed()));
+			if(walking && this.hasWallJump() && this.speed < 5 && side === this.hasWallJump()) {
+				this.setSpeed(Math.abs(this.speed));
 			}
 		}
 
@@ -190,8 +194,8 @@ class Moving extends Handler {
 	}
 
 	isWalking() {
-		if(this.is('Player') && this.getSpeed() < 5) {
-			this.setSpeed(this.getSpeed() + 0.15);
+		if(this.is('Player') && this.speed < this.initialSpeed) {
+			this.setSpeed(this.speed + 0.15);
 		}
 
 		if(this.walking) {
@@ -199,7 +203,7 @@ class Moving extends Handler {
 			this.isFalling();
 
 			if(this.is('Player') && this.isCurrentPlayer() && !this.onHitWall()) {
-				var vX = this.getSpeed() * this.getFacingOperator();
+				var vX = this.speed * this.getFacingOperator();
 				var x = this.getScrollX() + vX;
 
 				// this.setScrollX(x);

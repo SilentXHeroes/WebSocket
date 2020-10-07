@@ -15,6 +15,7 @@ const Common = new class {
 		};
 
 		this.sockets();
+		this.getFrameRate();
 	}
 
 	getPlayer(id) {
@@ -61,6 +62,10 @@ const Common = new class {
 	calcMousePosition(e) {
 		let bounds = Common.canvas.node.getBoundingClientRect();
 		return {x: e.clientX - bounds.left, y: e.clientY - bounds.top};
+	}
+	calcForFrameRate(value) {
+		// Rafraichissement de référence: 60 Hz
+		return parseInt(value / ( this.fps / 60 ));
 	}
 
 	sockets() {
@@ -117,7 +122,42 @@ const Common = new class {
 		for(var i in bullets) bullets[i].onDraw();
 		for(var i in shapes) shapes[i].onDraw();
 
+		Common.calculateFrameRate();
 		Common.animate();
+	}
+
+	getFrameRate(state = true) {
+		this.timeExecution = 0;
+		this.lastFrameRate = ! state;
+		this.framesRates = [];
+	}
+
+	calculateFrameRate() {
+		if( ! this.lastFrameRate) {
+			this.lastFrameRate = performance.now();
+			this.timeExecution = 0;
+			this.framesRates = [];
+		}
+		else if(this.timeExecution > 500) {
+			this.getFrameRate(false);
+		}
+		else if(this.lastFrameRate !== true) {
+			let fps = Math.ceil(1 / ((performance.now() - this.lastFrameRate) / 1000));
+
+			this.framesRates.push(fps);
+
+			let total = 0;
+			this.framesRates.forEach(val => total += val);
+
+			this.fps = parseInt(total / this.framesRates.length);
+
+			this.lastFrameRate = performance.now();
+			this.timeExecution++;
+		}
+
+		font(30, 'Monospace');
+		bg('red');
+		text(this.fps, 50, 50);
 	}
 
 	animate() {

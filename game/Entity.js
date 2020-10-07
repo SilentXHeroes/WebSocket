@@ -78,11 +78,11 @@ class Player extends Moving {
 	}
 
 	print() {
-		Common.board.font = "15px Comic Sans MS";
-		Common.board.fillStyle = "black";
-		Common.board.textAlign = "center";
-		Common.board.fillText(this.name, this.getX() + this.getWidth() / 2, this.getY() - 10);
-		Common.board.fillRect(this.getX(), this.getY(), this.getWidth(), this.getWidth());
+		font(15, 'Comic Sans MS');
+		bg('black');
+		align('center');
+		text(this.name, this.getX() + this.getWidth() / 2, this.getY() - 10);
+		rect(this.getX(), this.getY(), this.getWidth(), this.getHeight());
 	}
 
 	setEvents() {
