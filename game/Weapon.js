@@ -20,7 +20,7 @@ class Weapon extends Handler {
 
 	fire(event = null) {
 		let aim = event !== null;
-		let bullet = Common.newElement('Bullet', this.carrier, 15, 5, aim);
+		let bullet = Common.newElement('Bullet', this.carrier, 3, 5, aim);
 
 		if(aim) bullet.aimTo(event);
 

@@ -3,16 +3,36 @@ class Moving extends Handler {
 	constructor() {
 		super();
 
-		this.speed = Common.calcForFrameRate(5);
-		this.velocity = Common.calcForFrameRate(-15);
-console.log(this.velocity);
-		this.initialSpeed = this.speed;
+		// this.speed = Common.calcForFrameRate(5);
+		// this.velocity = {
+		// 	initial: Common.calcForFrameRate(-20),
+		// 	onWall: Common.calcForFrameRate(1.5),
+		// 	jump: Common.calcForFrameRate(1.5)
+		// };
 
-		console.log(this.speed);
+		// this.speed = 5
+		// this.speedScaleAfterWallJump = 0.15;
+		// this.velocity = {
+		// 	initial: -20,
+		// 	onWall: 2,
+		// 	jump: 1.5
+		// };
+
+		this.speed = 1.2; // * 0.25
+		this.speedScaleAfterWallJump = 0.5; // * 0.33
+		this.velocity = {
+			initial: -5, // * 0.25
+			onWall: 0.5, // * 0.25
+			jump: 0.1 // * 0.066
+		};
+
+		// console.log(this.speed);
+		// console.log(this.velocity);
+
+		this.initialSpeed = this.speed;
 
 		this.setVelocity(1);
 		this.setWalking(false);
-		this.setFacing('right');
 		this.weapon = false;
 		this.wallJump = false;
 		this.colision = {
@@ -28,9 +48,6 @@ console.log(this.velocity);
 	}
 	setFacing(side) {
 		this.facing = side;
-	}
-	setSpeed(speed) {
-		this.speed = speed;
 	}
 	setColision(side, value) {
 		this.colision[side] = value;
@@ -69,9 +86,6 @@ console.log(this.velocity);
 	getVelocity() {
 		return this.vy;
 	}
-	getSpeed() {
-		return this.speed;
-	}
 	getOppositeFacing() {
 		return this.facing === 'left' ? 'right' : 'left';
 	}
@@ -99,7 +113,14 @@ console.log(this.velocity);
 		return this.currentPlateform;
 	}
 	getHandsPos() {
-		return this.getY(false) + this.getWidth() / 2;
+		return {
+			x: this.getScrollX() + ( this.getFacingOperator() > 0 ? this.getWidth() : 0),
+			y: this.getY(false) + this.getWidth() / 2
+		};
+	}
+	recalcAiming(event = false) {
+		if( ! this.weapon) return;
+		this.aiming = Common.getAiming(this, ! event ? this.aiming : event);
 	}
 
 	// Prototypes
@@ -134,7 +155,7 @@ console.log(this.velocity);
 				}
 
 				this.setCurrentPlateform(false);
-				this.setVelocity(this.velocity);
+				this.setVelocity(this.velocity.initial);
 			}
 		}
 	}
@@ -165,7 +186,7 @@ console.log(this.velocity);
 				this.removeColision();
 			}
 
-			if(walking && this.hasWallJump() && this.speed < 5 && side === this.hasWallJump()) {
+			if(walking && this.hasWallJump() && this.speed < this.initialSpeed && side === this.hasWallJump()) {
 				this.setSpeed(Math.abs(this.speed));
 			}
 		}
@@ -195,7 +216,7 @@ console.log(this.velocity);
 
 	isWalking() {
 		if(this.is('Player') && this.speed < this.initialSpeed) {
-			this.setSpeed(this.speed + 0.15);
+			this.setSpeed(this.speed + this.speedScaleAfterWallJump);
 		}
 
 		if(this.walking) {
@@ -205,6 +226,8 @@ console.log(this.velocity);
 			if(this.is('Player') && this.isCurrentPlayer() && !this.onHitWall()) {
 				var vX = this.speed * this.getFacingOperator();
 				var x = this.getScrollX() + vX;
+
+				this.recalcAiming();
 
 				// this.setScrollX(x);
 
@@ -224,11 +247,12 @@ console.log(this.velocity);
 	onGround() {
 		if(!this.isOnGround()) {
 			// Walling
-			if(this.is('Player') && (this.isWallCLimbing('left') || this.isWallCLimbing('right'))) this.setVelocity(1.5);
+			if(this.is('Player') && (this.isWallCLimbing('left') || this.isWallCLimbing('right'))) this.setVelocity(this.velocity.onWall);
 			// Jumping
-			else this.setVelocity(this.getVelocity() + 1);
+			else this.setVelocity(this.getVelocity() + this.velocity.jump);
 
 			this.setY(this.getY() + this.getVelocity());
+			this.recalcAiming();
 			this.isTouchingGround();
 
 			if(this.getY() > Common.canvas.height) this.setXY(50, Common.canvas.height / 2);

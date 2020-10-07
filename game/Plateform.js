@@ -15,13 +15,18 @@ class Plateform extends Handler {
 
 		this.width = width;
 		this.height = height;
+		this.setColor('lightgreen');
 		this.setXY(x, y);
+	}
+
+	setColor(color) {
+		this.color = color;
 	}
 
 	onDraw() {
 		super.draw();
 		
-		Common.board.fillStyle = "lightgreen";
+		Common.board.fillStyle = this.color;
 		Common.board.fillRect(this.getX(), this.getY(), this.getWidth(), this.getHeight());
 	}
 }

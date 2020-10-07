@@ -31,6 +31,10 @@
 			<input id="width" type="number" min="25" max="100" value="25">
 			<label> x </label>
 			<input id="height" type="number" min="25" max="100" value="25">
+			<label>Vitesse: </label>
+			<input id="speed" type="number" min="0" max="100" value="5" step=".1">
+			<label>Hauteur de saut: </label>
+			<input id="jumpHeight" type="number" min="0" max="100" value="15" step=".1">
 			<button id="play">Jouer</button>
 			<canvas id="canvas" width="1000" height="500"></canvas>
 		</div>
@@ -55,7 +59,9 @@
 					id: Common.socket.id, 
 					name: document.getElementById("player").value,
 					width: document.getElementById("width").value,
-					height: document.getElementById("height").value
+					height: document.getElementById("height").value,
+					speed: document.getElementById("speed").value,
+					jumpH: document.getElementById("jumpHeight").value
 				};
 
 				let player = Common.newElement('Player', infos, true);

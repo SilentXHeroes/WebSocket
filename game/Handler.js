@@ -78,6 +78,12 @@ class Handler {
 	getHeight() {
 		return this.height;
 	}
+	setSpeed(speed) {
+		this.speed = speed;
+	}
+	getSpeed() {
+		return this.speed;
+	}
 	draw() {
 		// Common.drawPos(this);
 	}

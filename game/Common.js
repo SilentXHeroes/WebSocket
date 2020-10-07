@@ -16,6 +16,7 @@ const Common = new class {
 
 		this.sockets();
 		this.getFrameRate();
+		// this.fps = 60;
 	}
 
 	getPlayer(id) {
@@ -63,9 +64,36 @@ const Common = new class {
 		let bounds = Common.canvas.node.getBoundingClientRect();
 		return {x: e.clientX - bounds.left, y: e.clientY - bounds.top};
 	}
+	getAiming(entity, coords = false) {
+		if( ! coords) {
+			return {
+				steps: {
+					x: entity.getSpeed(), 
+					y: entity.getY(false)
+				}
+			}
+		}
+
+		let target = typeof coords.mouse !== 'undefined' ? coords.mouse : Common.calcMousePosition(coords);
+		let handPos = entity.getHandsPos();
+		let xDiff = target.x - handPos.x;
+		let yDiff = target.y - handPos.y;
+		let lengthBtwPoints = Math.sqrt(Math.pow(xDiff, 2) + Math.pow(yDiff, 2));
+		let steps = lengthBtwPoints / entity.getSpeed();
+
+		return {
+			length: lengthBtwPoints,
+			mouse: target,
+			steps: {
+				x: xDiff / steps,
+				y: yDiff / steps
+			}
+		};
+	}
 	calcForFrameRate(value) {
 		// Rafraichissement de référence: 60 Hz
-		return parseInt(value / ( this.fps / 60 ));
+		value = value * ( this.fps / 60 );
+		return parseFloat(value.toFixed(2));
 	}
 
 	sockets() {

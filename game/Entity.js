@@ -3,14 +3,23 @@ class Player extends Moving {
 	constructor(player, current = false) {
 		super();
 
+		let speed = 5;
+		let jumpH = 15;
+
+		if(typeof player.speed !== 'undefined') speed = player.speed;
+		if(typeof player.jumpH !== 'undefined') jumpH = player.jumpH;
+
 		this.id = player.id;
 		this.name = player.name;
 		this.width = parseInt(player.width);
 		this.height = parseInt(player.height);
+		// this.speed = speed;
+		// this.initialSpeed = speed;
+		// this.velocity = jumpH * -1;
 		this.currentPlayer = current;
 		this.jumpingFromKeyDown = false;
 		this.onMove = false;
-		this.aiming = {x: 0, y: 0};
+		this.aiming = false;
 		this.keydown = {
 			left: false,
 			right: false,
@@ -65,16 +74,45 @@ class Player extends Moving {
 	}
 
 	printAim() {
+		if( ! this.weapon || ! this.aiming) return;
+
+		Common.getElementsOfConstructor('Plateform').forEach(x => x.setColor('lightgreen'));
+
+		let handsPos = this.getHandsPos();
+		let stepX = this.aiming.steps.x;
+		let stepY = this.aiming.steps.y;
+
 		begin();
-		move(this.getX(), this.getHandsPos());
+		move(handsPos.x, handsPos.y);
 		strokeColor('red');
-		line(this.aiming.x, this.aiming.y, 2);
+		line(this.aiming.mouse.x, this.aiming.mouse.y, 2);
 		stroke();
 
 		begin();
 		strokeColor('red');
-		arc(this.aiming.x, this.aiming.y, 10);
+		arc(this.aiming.mouse.x, this.aiming.mouse.y, 10);
 		stroke();
+
+		while(handsPos.x > 0 && handsPos.y > 0 && handsPos.x < Common.canvas.width && handsPos.y < Common.canvas.height) {
+			let plateforms = Common.getElementsOfConstructor('Plateform');
+
+			plateforms.forEach(plateform => {
+				if(
+					handsPos.x > plateform.getX() &&
+					handsPos.x < plateform.getHitBoxX() &&
+					handsPos.y > plateform.getY() &&
+					handsPos.y < plateform.getHitBoxY()
+				) {
+					begin();
+					bg('grey');
+					arc(handsPos.x, handsPos.y, 4);
+					fill();
+				}
+			});
+
+			handsPos.x += stepX;
+			handsPos.y += stepY;
+		}
 	}
 
 	print() {
@@ -98,12 +136,13 @@ class Player extends Moving {
 
 		Common.canvas.node.addEventListener("click", (e) => {
 			if( ! this.weapon) return;
-			this.weapon.fire(e.clientX, e.clientY);
+			this.weapon.fire(e);
 		});
 
 		Common.canvas.node.addEventListener('mousemove', (e) => {
 			if( ! this.weapon) return;
-			this.aiming = Common.calcMousePosition(e);
+			this.aiming = Common.getAiming(this, e);
+			// this.weapon.fire(e);
 		});
 	}
 

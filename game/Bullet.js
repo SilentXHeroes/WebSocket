@@ -3,29 +3,18 @@ class Bullet extends Handler {
 	constructor(shooter, speed, dommage, aim = false) {
 		super();
 
-		var facing = shooter.getFacing();
-
-		if(shooter.getColision(facing)) facing = shooter.getOppositeFacing();
-
-		let faceValue = facing === 'right' ? 1 : -1;
-
-		if(aim) speed *= 1;
-		else speed *= faceValue;
-
-		let x = shooter.getScrollX() + ( faceValue > 0 ? shooter.getWidth() : 0);
-
-		this.setScrollX(x);
-		this.setXY(x, shooter.getHandsPos());
+		speed *= this.getFacingOperator();
+		let handsPos = shooter.getHandsPos();
+		
+		this.setScrollX(handsPos.x);
+		this.setXY(handsPos.x, handsPos.y);
 		this.width = 5;
 		this.height = 5;
 		this.speed = speed;
 		this.dommage = dommage;
 		this.shooter = shooter;
 		this.out = false;
-		this.aim = {
-			x: this.speed, 
-			y: this.getY(false)
-		};
+		this.aim = Common.getAiming(this);
 	}
 
 	setDommage(amount) {
@@ -33,14 +22,7 @@ class Bullet extends Handler {
 	}
 
 	aimTo(event) {
-		let mousePosition = Common.calcMousePosition(event);
-		let xDiff = mousePosition.x - this.getScrollX(false);
-		let yDiff = mousePosition.y - this.getY(false);
-		let lengthBtwPoints = Math.sqrt(Math.pow(xDiff, 2) + Math.pow(yDiff, 2));
-		let steps = lengthBtwPoints / this.speed;
-
-		this.aim.x = xDiff / steps;
-		this.aim.y = yDiff / steps;
+		this.aim = Common.getAiming(this.shooter, event);
 	}
 
 	onHit() {
@@ -85,7 +67,7 @@ class Bullet extends Handler {
 		arc(this.getScrollX(false), this.getY(false), this.width);
 		fill();
 
-		this.setScrollX(this.getScrollX(false) + this.aim.x);
-		this.setY(this.getY(false) + this.aim.y);
+		this.setScrollX(this.getScrollX(false) + this.aim.steps.x * this.speed);
+		this.setY(this.getY(false) + this.aim.steps.y * this.speed);
 	}
 }
