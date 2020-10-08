@@ -48,6 +48,7 @@ class Handler {
 			this.setScrollX(x);
 		}
 
+
 		this.x = x;
 		this.y = y;
 
@@ -65,10 +66,48 @@ class Handler {
 	getHitBoxY() {
 		return this.getY() + this.getHeight();
 	}
+	getHitBox() {
+		this.hitbox = [];
+
+		//   Visualisation de la hitbox:
+		// 
+		//	(0)-------(3)
+		//   |		   |
+		//	 |		   |
+		//	 |		   |
+		//	(1)-------(2)
+
+		if(this.is('Bullet')) {
+			this.hitbox[0] = [this.scrollX - this.width, this.y - this.height];
+			this.hitbox[1] = [this.scrollX - this.width, this.y + this.height];
+			this.hitbox[2] = [this.scrollX + this.width, this.y - this.height];
+			this.hitbox[3] = [this.scrollX + this.width, this.y + this.height];
+		}
+		else {
+			this.hitbox[0] = [this.scrollX, this.y + this.height];
+			this.hitbox[1] = [this.scrollX, this.y];
+			this.hitbox[2] = [this.scrollX + this.width, this.y];
+			this.hitbox[3] = [this.scrollX + this.width, this.y + this.height];
+		}
+
+		return this.hitbox;
+	}
+	drawHitBox() {
+		let hitbox = this.getHitBox();
+
+		begin();
+		bg('red');
+		move(hitbox[0][0], hitbox[0][1]);
+		line(hitbox[1][0], hitbox[1][1]);
+		line(hitbox[3][0], hitbox[3][1]);
+		line(hitbox[2][0], hitbox[2][1]);
+		line(hitbox[0][0], hitbox[0][1]);
+		fill();
+	}
 	getFacing() {
 		return this.facing;
 	}
-	getFacingOperator() {
+	getFacingOperator() {  
 		return this.facing === 'left' ? -1 : 1;
 	}
 
@@ -84,6 +123,30 @@ class Handler {
 	getSpeed() {
 		return this.speed;
 	}
+
+	collidesWith(element) {
+		let thisHB = this.getHitBox();
+		let elemHB = element.getHitBox();
+		let i;
+
+		for(i = 0; i < 4; i++) {
+			// handsPos.x > plateform.getX() &&
+			// handsPos.x < plateform.getHitBoxX() &&
+			// handsPos.y > plateform.getY() &&
+			// handsPos.y < plateform.getHitBoxY()
+			if(
+				thisHB[i][0] > elemHB[0][0] &&
+				thisHB[i][0] < elemHB[1][0] &&
+				thisHB[i][1] > elemHB[2][1] &&
+				thisHB[i][1] < elemHB[3][1]
+			) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	draw() {
 		// Common.drawPos(this);
 	}

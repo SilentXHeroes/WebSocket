@@ -30,6 +30,9 @@ function align(align) {
 	Common.board.textAlign = align;
 }
 /* METHODS */
+function join(join) {
+	Common.board.lineJoin = join;
+}
 function move(x,y) {
 	Common.board.moveTo(x,y);
 }

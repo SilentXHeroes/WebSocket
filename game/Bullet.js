@@ -31,16 +31,17 @@ class Bullet extends Handler {
 			var element = elements[i];
 
 			if(
-				(
-					(this.getHitBoxY() < element.getHitBoxY() && this.getHitBoxY() > element.getY()) ||
-					(this.getY() < element.getHitBoxY() && this.getY() > element.getY())
-				) 
-				&& 
-				(
-					(this.getFacing() === 'right' && this.getHitBoxX() > element.getScrollX() && this.getHitBoxX() < element.getHitBoxX()) ||
-					(this.getFacing() === 'left' && this.getScrollX() < element.getHitBoxX() && this.getScrollX() > element.getScrollX())
-				)
-				&& (! element.is('Player') || this.shooter.getId() !== element.getId())
+				// (
+				// 	(this.getHitBoxY() < element.getHitBoxY() && this.getHitBoxY() > element.getY()) ||
+				// 	(this.getY() < element.getHitBoxY() && this.getY() > element.getY())
+				// ) 
+				// && 
+				// (
+				// 	(this.getFacing() === 'right' && this.getHitBoxX() > element.getScrollX() && this.getHitBoxX() < element.getHitBoxX()) ||
+				// 	(this.getFacing() === 'left' && this.getScrollX() < element.getHitBoxX() && this.getScrollX() > element.getScrollX())
+				// )
+				this.collidesWith(element)
+				&& this.shooter.getUniqueId() !== element.getUniqueId()
 			) {
 				if((element.is('Player') && this.shooter.is('BadGuy')) ||
 				   (element.is('BadGuy') && this.shooter.is('Player'))
@@ -60,10 +61,15 @@ class Bullet extends Handler {
 			this.onHit() || 
 			this.getY(false) < -100 || 
 			this.getY(false) > Common.canvas.height + 100
-		) this.destroy();
+		) {
+			this.destroy();
+			return;
+		}
+
+		this.drawHitBox();
 
 		begin();
-		bg('silver');
+		bg('grey');
 		arc(this.getScrollX(false), this.getY(false), this.width);
 		fill();
 

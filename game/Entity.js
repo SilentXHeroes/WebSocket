@@ -98,10 +98,11 @@ class Player extends Moving {
 
 			plateforms.forEach(plateform => {
 				if(
-					handsPos.x > plateform.getX() &&
-					handsPos.x < plateform.getHitBoxX() &&
-					handsPos.y > plateform.getY() &&
-					handsPos.y < plateform.getHitBoxY()
+					// handsPos.x > plateform.getX() &&
+					// handsPos.x < plateform.getHitBoxX() &&
+					// handsPos.y > plateform.getY() &&
+					// handsPos.y < plateform.getHitBoxY()
+					this.collidesWith(plateform)
 				) {
 					begin();
 					bg('grey');

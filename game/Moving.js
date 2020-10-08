@@ -10,21 +10,21 @@ class Moving extends Handler {
 		// 	jump: Common.calcForFrameRate(1.5)
 		// };
 
-		// this.speed = 5
-		// this.speedScaleAfterWallJump = 0.15;
-		// this.velocity = {
-		// 	initial: -20,
-		// 	onWall: 2,
-		// 	jump: 1.5
-		// };
-
-		this.speed = 1.2; // * 0.25
-		this.speedScaleAfterWallJump = 0.5; // * 0.33
+		this.speed = 5;
+		this.speedScaleAfterWallJump = 0.15;
 		this.velocity = {
-			initial: -5, // * 0.25
-			onWall: 0.5, // * 0.25
-			jump: 0.1 // * 0.066
+			initial: -20,
+			onWall: 2,
+			jump: 1.5
 		};
+
+		// this.speed = 1.2; // * 0.25;
+		// this.speedScaleAfterWallJump = 0.5; // * 0.33
+		// this.velocity = {
+		// 	initial: -5, // * 0.25
+		// 	onWall: 0.5, // * 0.25
+		// 	jump: 0.1 // * 0.066
+		// };
 
 		// console.log(this.speed);
 		// console.log(this.velocity);
