@@ -1,12 +1,30 @@
 class Weapon extends Handler {
 
-	constructor(obj) {
+	constructor(type) {
 		super();
 
-		this.carrier = obj;
-		this.bullets = [];
 		this.isFiring = false;
 		this.speedFire = 0;
+
+		let img = new Image();
+
+		img.src = "asset/"+ type +".png";
+
+		let thos = this;
+
+		img.onload = function () {
+			thos.setWidth(this.width);
+			thos.setHeight(this.height);
+
+			let position = thos.getRandomPosition();
+
+			thos.img = this;
+			thos.setXY(position.x, position.y - 10);
+		}
+	}
+
+	carryBy(player) {
+		this.carrier = player;
 	}
 
 	rapidFire() {
@@ -18,13 +36,8 @@ class Weapon extends Handler {
 		}
 	}
 
-	fire(event = null) {
-		let aim = event !== null;
-		let bullet = Common.newElement('Bullet', this.carrier, 3, 5, aim);
-
-		if(aim) bullet.aimTo(event);
-
-		this.bullets.push(bullet);
+	fire() {
+		Common.newElement('Bullet', this.carrier, 5, 5);
 	}
 
 	setFire(state) {
@@ -33,6 +46,16 @@ class Weapon extends Handler {
 
 	onDraw() {
 		// this.rapidFire();
-		for(var i in this.bullets) if(this.bullets[i].onDraw() === false) this.bullets.shift();
+
+		let player = this.collidesWith('Player');
+		if(player) {
+			this.carryBy(player);
+			player.carryWeapon(this);
+			this.img = false;
+		}
+
+		if(this.img) {
+			img(this.img, this.x, this.y);
+		}
 	}
 }

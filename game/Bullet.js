@@ -1,6 +1,6 @@
 class Bullet extends Handler {
 
-	constructor(shooter, speed, dommage, aim = false) {
+	constructor(shooter, speed, dommage) {
 		super();
 
 		speed *= this.getFacingOperator();
@@ -14,47 +14,34 @@ class Bullet extends Handler {
 		this.dommage = dommage;
 		this.shooter = shooter;
 		this.out = false;
-		this.aim = Common.getAiming(this);
+
+		this.recalcAiming(this.shooter);
 	}
 
 	setDommage(amount) {
 		this.dommage = amount;
 	}
 
-	aimTo(event) {
-		this.aim = Common.getAiming(this.shooter, event);
-	}
-
 	onHit() {
-		var elements = Common.getElements();
-		for(var i in elements) {
-			var element = elements[i];
-
+		let element = this.collidesWith('Plateform', 'BadGuy');
+		if(element) {
 			if(
-				// (
-				// 	(this.getHitBoxY() < element.getHitBoxY() && this.getHitBoxY() > element.getY()) ||
-				// 	(this.getY() < element.getHitBoxY() && this.getY() > element.getY())
-				// ) 
-				// && 
-				// (
-				// 	(this.getFacing() === 'right' && this.getHitBoxX() > element.getScrollX() && this.getHitBoxX() < element.getHitBoxX()) ||
-				// 	(this.getFacing() === 'left' && this.getScrollX() < element.getHitBoxX() && this.getScrollX() > element.getScrollX())
-				// )
-				this.collidesWith(element)
-				&& this.shooter.getUniqueId() !== element.getUniqueId()
-			) {
-				if((element.is('Player') && this.shooter.is('BadGuy')) ||
-				   (element.is('BadGuy') && this.shooter.is('Player'))
-				) {
-					element.injured(this.dommage);
-				}
-
-				return true;
+				(element.is('Player') && this.shooter.is('BadGuy')) ||
+			   	(element.is('BadGuy') && this.shooter.is('Player'))
+			){
+				element.injured(this.dommage);
 			}
+
+			return true;
 		}
 	}
 
 	onDraw() {
+		begin();
+		bg('grey');
+		arc(this.getScrollX(false), this.getY(false), this.width);
+		fill();
+
 		if(
 			this.getScrollX(false) > Common.canvas.width + 100 ||
 			this.getScrollX(false) < -100 || 
@@ -66,14 +53,9 @@ class Bullet extends Handler {
 			return;
 		}
 
-		this.drawHitBox();
+		// this.drawHitBox();
 
-		begin();
-		bg('grey');
-		arc(this.getScrollX(false), this.getY(false), this.width);
-		fill();
-
-		this.setScrollX(this.getScrollX(false) + this.aim.steps.x * this.speed);
-		this.setY(this.getY(false) + this.aim.steps.y * this.speed);
+		this.setScrollX(this.getScrollX(false) + this.aiming.steps.x * this.speed);
+		this.setY(this.getY(false) + this.aiming.steps.y * this.speed);
 	}
 }

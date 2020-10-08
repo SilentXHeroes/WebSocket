@@ -1,192 +1,369 @@
-class Player extends Moving {
+class Entity extends Handler {
 
-	constructor(player, current = false) {
+	constructor() {
 		super();
 
-		let speed = 5;
-		let jumpH = 15;
+		// this.speed = Common.calcForFrameRate(5);
+		// this.velocity = {
+		// 	initial: Common.calcForFrameRate(-20),
+		// 	onWall: Common.calcForFrameRate(1.5),
+		// 	jump: Common.calcForFrameRate(1.5)
+		// };
 
-		if(typeof player.speed !== 'undefined') speed = player.speed;
-		if(typeof player.jumpH !== 'undefined') jumpH = player.jumpH;
+		// this.speed = 5;
+		// this.speedScaleAfterWallJump = 0.15;
+		// this.velocity = {
+		// 	initial: -20,
+		// 	onWall: 2,
+		// 	jump: 1.5
+		// };
 
-		this.id = player.id;
-		this.name = player.name;
-		this.width = parseInt(player.width);
-		this.height = parseInt(player.height);
-		// this.speed = speed;
-		// this.initialSpeed = speed;
-		// this.velocity = jumpH * -1;
-		this.currentPlayer = current;
-		this.jumpingFromKeyDown = false;
-		this.onMove = false;
-		this.aiming = false;
-		this.keydown = {
-			left: false,
-			right: false,
-			jump: false
+		this.speed = 1.2; // * 0.25;
+		this.speedScaleAfterWallJump = 0.5; // * 0.33
+		this.velocity = {
+			initial: -5, // * 0.25
+			onWall: 0.5, // * 0.25
+			jump: 0.1 // * 0.066
 		};
 
-		if(typeof player.posX === 'undefined') player.posX = 50;
-		if(typeof player.posY === 'undefined') player.posY = Common.canvas.floor - this.getWidth() * 2;
+		// console.log(this.speed);
+		// console.log(this.velocity);
 
-		this.setXY(player.posX, player.posY);
-		this.onDraw();
-		this.setEvents();
+		this.initialSpeed = this.speed;
+
+		this.setVelocity(1);
+		this.setWalking(false);
+		this.weapon = false;
+		this.wallJump = false;
+		this.colision = {
+			left: false,
+			right: false
+		};
 	}
 
-	getId() {
-		return this.id;
+	// SETTERS
+
+	setVelocity(v) {
+		this.vy = v;
+	}
+	setFacing(side) {
+		this.facing = side;
+	}
+	setColision(side, value) {
+		this.colision[side] = value;
+	}
+	removeColision() {
+		this.colision.left = false;
+		this.colision.right = false;
+	}
+	setCurrentPlateform(value) {
+		if( ! value) delete this.currentPlateform;
+		else this.currentPlateform = value;
+	}
+	setWalking(walking) {
+		this.walking = walking;
+	}
+	setWallJump(side) {
+		if(!side) {
+			this.setSpeed(this.speed);
+			this.setWalking(false);
+		}
+		else {
+			// this.setSpeed(this.speed * -1);
+			this.setWalking(true);
+		}
+		this.wallJump = side;
+	}
+	setSiblingsPlateforms() {
+		let moving = this;
+		this.siblingsPlateforms = Common.getElements().filter(function(element) {
+			return element.is('Plateform') && moving.getHitBoxX() + 10 > element.getX() && moving.getX() - 10 < element.getHitBoxX();
+		});
 	}
 
-	isCurrentPlayer() {
-		return this.currentPlayer;
-	}
+	// GETTERS
 
-	onDraw() {
-		super.onDraw();
-		
-		this.stopWalling();
-		this.verifyKeyDowns();
-		this.printAim();
-		this.print();
+	getVelocity() {
+		return this.vy;
 	}
-
-	stopWalling() {
-		if( ! this.isOnGround()) {
-			let plateform = this.getColision();
-			if(plateform && (this.getY() > plateform.getHitBoxY() || this.getHitBoxY() < plateform.getY())) this.removeColision();
+	getOppositeFacing() {
+		return this.facing === 'left' ? 'right' : 'left';
+	}
+	getColision(side = false) {
+		if(!side) {
+			if(this.colision.left) {
+				return this.colision.left;
+			}
+			else if(this.colision.right) {
+				return this.colision.right;
+			}
+			else {
+				return false;
+			}
+		}
+		else {
+			return this.colision[side];
 		}
 	}
-
-	verifyKeyDowns() {
-		let side = this.keydown.left ? 'left' : (this.keydown.right ? 'right' : false);
-
-		// Saut permanent
-		if(this.keydown.jump && !this.getColision()) {
-			this.jumpingFromKeyDown = true;
-			this.jump(true);
-		}
-
-		// On autorise le déplacement après une colision
-		if(side && !this.getColision(side) && !this.hasWallJump()) {
-			this.walk(true, side);
-		}
+	getColisionSide() {
+		if(this.colision.left) return 'left';
+		return 'right';
+	}
+	getCurrentPlateform() {
+		return this.currentPlateform;
+	}
+	getHandsPos() {
+		return {
+			x: this.getScrollX() + ( this.getFacingOperator() > 0 ? this.getWidth() : 0),
+			y: this.getY(false) + this.getWidth() / 2
+		};
 	}
 
-	printAim() {
-		if( ! this.weapon || ! this.aiming) return;
-
-		Common.getElementsOfConstructor('Plateform').forEach(x => x.setColor('lightgreen'));
-
-		let handsPos = this.getHandsPos();
-		let stepX = this.aiming.steps.x;
-		let stepY = this.aiming.steps.y;
+	printVitality() {
+		let vitaWidth = 40;
+		let vitaHeight = 5;
+		let x = this.getX() + (this.getWidth() / 2) - (vitaWidth / 2);
+		let y = this.getY() - (this.getHeight() / 2);
 
 		begin();
-		move(handsPos.x, handsPos.y);
-		strokeColor('red');
-		line(this.aiming.mouse.x, this.aiming.mouse.y, 2);
-		stroke();
-
+		bg('red');
+		rect(x, y, vitaWidth, vitaHeight);
+		fill();
 		begin();
-		strokeColor('red');
-		arc(this.aiming.mouse.x, this.aiming.mouse.y, 10);
-		stroke();
+		bg('green');
+		rect(x, y, vitaWidth * ( this.health / this.totalHealth ), vitaHeight);
+		fill();
+	}
 
-		while(handsPos.x > 0 && handsPos.y > 0 && handsPos.x < Common.canvas.width && handsPos.y < Common.canvas.height) {
-			let plateforms = Common.getElementsOfConstructor('Plateform');
+	// Prototypes
 
-			plateforms.forEach(plateform => {
-				if(
-					// handsPos.x > plateform.getX() &&
-					// handsPos.x < plateform.getHitBoxX() &&
-					// handsPos.y > plateform.getY() &&
-					// handsPos.y < plateform.getHitBoxY()
-					this.collidesWith(plateform)
-				) {
-					begin();
-					bg('grey');
-					arc(handsPos.x, handsPos.y, 4);
-					fill();
+	fire() {
+		this.weapon.setFire(true);
+	}
+
+	stopFire() {
+		this.weapon.setFire(false);
+	}
+
+	carryWeapon(weapon) {
+		this.weapon = weapon;
+		this.recalcAiming();
+	}
+
+	jump(jumping) {
+		var colision = this.getColision();
+
+		if(this.is('Player')) {
+			this.keydown.jump = jumping;
+		}
+
+		if(jumping) {
+			if(this.isOnGround() || (colision && this.isWallCLimbing(this.getColisionSide()))) {
+				// Saute du côté opposé du mur
+				if(this.is('Player') && !this.isOnGround()) {
+					this.removeColision();
+					this.setFacing(this.getOppositeFacing());
+					this.setWallJump(this.getFacing());
+					this.setWalking(true);
 				}
-			});
 
-			handsPos.x += stepX;
-			handsPos.y += stepY;
+				this.setCurrentPlateform(false);
+				this.setVelocity(this.velocity.initial);
+			}
 		}
 	}
 
-	print() {
-		font(15, 'Comic Sans MS');
-		bg('black');
-		align('center');
-		text(this.name, this.getX() + this.getWidth() / 2, this.getY() - 10);
-		rect(this.getX(), this.getY(), this.getWidth(), this.getHeight());
-	}
+	walk(walking, side = false) {
+		if(this.is('Player')) {
+			this.keydown[side] = walking;
 
-	setEvents() {
-		if( ! this.currentPlayer) return;
+			var opposite = side === 'left' ? 'right' : 'left';
 
-		document.addEventListener("keydown", (e) => {
-			this._playerEvents(e);
-		});
+			// Si appui des touches directionnelles constant
+			// On vérifie si une touche est toujours appuyée
+			if(!walking) {
+				if((side === "left" && this.keydown.right) || (side === "right" && this.keydown.left)) {
+					side = opposite;
+					walking = true;
+				}
+				if(this.hasWallJump()) {
+					walking = true;
+					side = this.getFacing();
+				}
+			}
 
-		document.addEventListener("keyup", (e) => {
-			this._playerEvents(e);
-		});
+			if(this.getColision(side)) {
+				walking = false;
+			}
+			else {
+				this.removeColision();
+			}
 
-		Common.canvas.node.addEventListener("click", (e) => {
-			if( ! this.weapon) return;
-			this.weapon.fire(e);
-		});
-
-		Common.canvas.node.addEventListener('mousemove', (e) => {
-			if( ! this.weapon) return;
-			this.aiming = Common.getAiming(this, e);
-			// this.weapon.fire(e);
-		});
-	}
-
-	_playerEvents(e) {
-		if(e.keyCode === 32) this.weapon.setFire(e.type === 'keydown');
-		else if(e.keyCode === 38 || e.keyCode === 90) this.jump(e.type === 'keydown');
-		else if(e.keyCode === 37 || e.keyCode === 81 || e.keyCode === 39 || e.keyCode === 68) this.walk(e.type === 'keydown', e.keyCode === 37 || e.keyCode === 81 ? "left" : "right");
-	}
-}
-
-class BadGuy extends Moving {
-	health;
-	totalHealth;
-	isDead;
-
-	constructor(x, y, health) {
-		super();
-
-		this.width = 25;
-		this.height = 25;
-		this.health = health;
-		this.totalHealth = health;
-		this.isDead = false;
-
-		this.setXY(50, Common.canvas.floor - this.getWidth() * 2);
-		this.onDraw();
-	}
-
-	injured(amount) {
-		this.health -= amount;
-
-		if(this.health <= 0) {
-			this.isDead = true;
+			if(walking && this.hasWallJump() && this.speed < this.initialSpeed && side === this.hasWallJump()) {
+				this.setSpeed(Math.abs(this.speed));
+			}
 		}
+
+		this.setFacing(side);
+		this.setWalking(walking);
+	}
+
+	// Helpers
+
+	isCurrentPlateform(plateform) {
+		return this.isOnGround() &&
+				this.currentPlateform.getX() === plateform.getX() &&
+				this.currentPlateform.getY() === plateform.getY() &&
+				this.currentPlateform.getWidth() === plateform.getWidth();
+	}
+
+	hasWallJump() {
+		return this.wallJump;
+	}
+	isWallCLimbing(side) {
+		return this.getColision(side) && this.keydown[side];
+	}
+	isOnGround() {
+		return typeof this.getCurrentPlateform() !== "undefined";
+	}
+
+	isWalking() {
+		if(this.is('Player') && this.speed < this.initialSpeed) {
+			this.setSpeed(this.speed + this.speedScaleAfterWallJump);
+		}
+
+		if(this.walking) {
+			this.setSiblingsPlateforms();
+			this.isFalling();
+
+			if(this.is('Player') && this.isCurrentPlayer() && !this.onHitWall()) {
+				var vX = this.speed * this.getFacingOperator();
+				var x = this.getScrollX() + vX;
+
+				this.recalcAiming();
+
+				// this.setScrollX(x);
+
+				// Common.screenScrolling = this.getScrollX() - width / 2 > 0;
+				// if(Common.screenScrolling) {
+				// 	Common.setScroll(vX * -1);
+				// }
+				// else {
+				// 	Common.clearScroll();
+					this.setX(x);
+			// 	}
+			// }
+			}
+		}
+	}
+
+	onGround() {
+		if(!this.isOnGround()) {
+			// Walling
+			if(this.is('Player') && (this.isWallCLimbing('left') || this.isWallCLimbing('right'))) this.setVelocity(this.velocity.onWall);
+			// Jumping
+			else this.setVelocity(this.getVelocity() + this.velocity.jump);
+
+			this.setY(this.getY() + this.getVelocity());
+			this.recalcAiming();
+			this.isTouchingGround();
+
+			if(this.getY() > Common.canvas.height) this.setXY(50, Common.canvas.height / 2);
+		}
+	}
+
+	isFalling() {
+		if(this.getCurrentPlateform() && !this.walkingOnPlateform()) {
+			this.setCurrentPlateform(false);
+			this.setVelocity(0);
+		}
+	}
+
+	isTouchingGround() {
+		for(var i in this.siblingsPlateforms) {
+			var plateform = this.siblingsPlateforms[i];
+
+			if(this.headTouchingPlateform(plateform)) {
+				this.setY(plateform.getHitBoxY());
+				this.setVelocity(0);
+				break;
+			}
+			else if(this.footTouchingPlateform(plateform)) {
+				this.setWallJump(false);
+				this.setCurrentPlateform(plateform);
+
+				this.setY(plateform.getY() - this.getWidth());
+				this.setVelocity(0);
+				break;
+			}
+		}
+	}
+
+	// Outch la tête ...
+	headTouchingPlateform(plateform) {
+		return this.getVelocity() < 0 &&
+				this.walkingOnPlateform(plateform) &&
+				this.getHitBoxY() > plateform.getHitBoxY() &&
+				this.getY() < plateform.getHitBoxY();
+	}
+
+	// Plateforme sous nos pieds ?
+	footTouchingPlateform(plateform) {
+		return this.getVelocity() > 0 &&
+				this.walkingOnPlateform(plateform) &&
+				this.getHitBoxY() > plateform.getY() &&
+				this.getY() < plateform.getY();
+	}
+
+	walkingOnPlateform(plateform) {
+		if(typeof plateform === "undefined") {
+			if(this.isOnGround()) {
+				plateform = this.currentPlateform;
+			}
+			else {
+				return false;
+			}
+		}
+
+		return this.getHitBoxX() > plateform.getX() && this.getX() < plateform.getHitBoxX();
+	}
+
+	onHitWall() {
+		for(var i in this.siblingsPlateforms) {
+			var plateform = this.siblingsPlateforms[i];
+
+			if(i > 0 &&
+				!this.isCurrentPlateform(plateform) &&
+				this.getHitBoxX() > plateform.getX() && 
+				this.getX() < plateform.getHitBoxX() &&
+				this.getHitBoxY() > plateform.getY() &&
+				this.getY() < plateform.getHitBoxY()
+			) {
+				this.setWalking(false);
+
+				// Colision right
+				if(this.getX() < plateform.getX()) {
+					this.setColision('right', plateform);
+					this.setX(plateform.getX() - this.getWidth());
+				}
+				// Colision left
+				else {
+					this.setColision('left', plateform);
+					this.setX(plateform.getHitBoxX());
+				}
+
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	onDraw() {
-		super.onDraw();
-		Common.board.fillStyle = "red";
-		Common.board.fillRect(this.getX() + this.getWidth() / 2 - 50 / 2, this.getY() - this.getWidth() / 2, 50, 10);
-		Common.board.fillStyle = "green";
-		Common.board.fillRect(this.x + this.getWidth() / 2 - 50 / 2, this.getY() - this.getWidth() / 2, 50 * ( this.health / this.totalHealth ), 10);
-		Common.board.fillStyle = "black";
-		Common.board.fillRect(this.getX(), this.getY(), this.getWidth(), this.getWidth());
+		super.draw();
+		
+		this.setSiblingsPlateforms();
+		this.isWalking();
+		this.onGround();
 	}
 }

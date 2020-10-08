@@ -15,6 +15,9 @@ function arc(x,y,r) {
 function rect(x,y,w,h) {
 	Common.board.fillRect(x, y, w, h);
 }
+function img(...args) {
+	Common.board.drawImage(...args);
+}
 /* FILL COLOR */
 function bg(color) {
 	Common.board.fillStyle = color;

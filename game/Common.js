@@ -16,6 +16,10 @@ const Common = new class {
 
 		this.sockets();
 		this.getFrameRate();
+
+		canvas.addEventListener('mousemove', e => {
+			this.mousePosition = this.calcMousePosition(e);
+		});
 		// this.fps = 60;
 	}
 
@@ -23,11 +27,14 @@ const Common = new class {
 		let players = this.getElementsOfConstructor('Player');
 		return players.find(x => x.getId() === id);
 	}
+	getElementById(id) {
+		return this.elements.find(x => x.uniqueID === id);
+	}
 	getElements() {
 		return this.elements;
 	}
-	getElementsOfConstructor(constructor) {
-		return this.elements.filter(element => element.is(constructor));
+	getElementsOfConstructor(...constructor) {
+		return this.elements.filter(element => element.is(...constructor));
 	}
 	newElement(...args) {
 		let constructor = args.shift();
@@ -60,40 +67,22 @@ const Common = new class {
 		this.board.font = "12px Sans-Serif";
 		this.board.fillText(txt, obj.getX() + obj.getWidth() / 2, obj.getY() - 10);
 	}
+	getMousePosition() {
+		return this.mousePosition;
+	}
 	calcMousePosition(e) {
 		let bounds = Common.canvas.node.getBoundingClientRect();
 		return {x: e.clientX - bounds.left, y: e.clientY - bounds.top};
-	}
-	getAiming(entity, coords = false) {
-		if( ! coords) {
-			return {
-				steps: {
-					x: entity.getSpeed(), 
-					y: entity.getY(false)
-				}
-			}
-		}
-
-		let target = typeof coords.mouse !== 'undefined' ? coords.mouse : Common.calcMousePosition(coords);
-		let handPos = entity.getHandsPos();
-		let xDiff = target.x - handPos.x;
-		let yDiff = target.y - handPos.y;
-		let lengthBtwPoints = Math.sqrt(Math.pow(xDiff, 2) + Math.pow(yDiff, 2));
-		let steps = lengthBtwPoints / entity.getSpeed();
-
-		return {
-			length: lengthBtwPoints,
-			mouse: target,
-			steps: {
-				x: xDiff / steps,
-				y: yDiff / steps
-			}
-		};
 	}
 	calcForFrameRate(value) {
 		// Rafraichissement de référence: 60 Hz
 		value = value * ( this.fps / 60 );
 		return parseFloat(value.toFixed(2));
+	}
+	rand(x1,x2 = 0) {
+		let max = Math.max(x1,x2);
+		let min = Math.min(x1, x2);
+		return Math.random() * (max - min) + min;
 	}
 
 	sockets() {
@@ -136,17 +125,17 @@ const Common = new class {
 	frame() {
 		Common.board.clearRect(0, 0, Common.canvas.width, Common.canvas.height);
 
-		var elements = Common.getElementsOfConstructor('Plateform');
+		var plateforms = Common.getElementsOfConstructor('Plateform');
 		var players = Common.getElementsOfConstructor('Player');
 		var badGuys = Common.getElementsOfConstructor('BadGuy');
-		// var weapons = Common.getElementsOfConstructor('Weapon');
+		var weapons = Common.getElementsOfConstructor('Weapon');
 		var bullets = Common.getElementsOfConstructor('Bullet');
 		var shapes = Common.getElementsOfConstructor('Shape');
 
-		for(var i in elements) elements[i].onDraw();
+		for(var i in plateforms) plateforms[i].onDraw();
 		for(var i in players) players[i].onDraw();
-		// for(var i in weapons) weapons[i].onDraw();
-		for(var i in badGuys) elements[i].onDraw();
+		for(var i in weapons) weapons[i].onDraw();
+		for(var i in badGuys) badGuys[i].onDraw();
 		for(var i in bullets) bullets[i].onDraw();
 		for(var i in shapes) shapes[i].onDraw();
 

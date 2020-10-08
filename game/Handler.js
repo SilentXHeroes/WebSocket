@@ -48,7 +48,6 @@ class Handler {
 			this.setScrollX(x);
 		}
 
-
 		this.x = x;
 		this.y = y;
 
@@ -66,7 +65,7 @@ class Handler {
 	getHitBoxY() {
 		return this.getY() + this.getHeight();
 	}
-	getHitBox() {
+	updateHitBox() {
 		this.hitbox = [];
 
 		//   Visualisation de la hitbox:
@@ -93,15 +92,15 @@ class Handler {
 		return this.hitbox;
 	}
 	drawHitBox() {
-		let hitbox = this.getHitBox();
+		this.updateHitBox();
 
 		begin();
 		bg('red');
-		move(hitbox[0][0], hitbox[0][1]);
-		line(hitbox[1][0], hitbox[1][1]);
-		line(hitbox[3][0], hitbox[3][1]);
-		line(hitbox[2][0], hitbox[2][1]);
-		line(hitbox[0][0], hitbox[0][1]);
+		move(this.hitbox[0][0], this.hitbox[0][1]);
+		line(this.hitbox[1][0], this.hitbox[1][1]);
+		line(this.hitbox[3][0], this.hitbox[3][1]);
+		line(this.hitbox[2][0], this.hitbox[2][1]);
+		line(this.hitbox[0][0], this.hitbox[0][1]);
 		fill();
 	}
 	getFacing() {
@@ -110,7 +109,44 @@ class Handler {
 	getFacingOperator() {  
 		return this.facing === 'left' ? -1 : 1;
 	}
+	getRandomPosition() {
+		let plateforms = Common.getElementsOfConstructor('Plateform');
+		let rand = parseInt(Common.rand(plateforms.length));
+		let plateform = plateforms[rand];
 
+		return {
+			x: Common.rand(plateform.getX(), plateform.getHitBoxX()),
+			y: plateform.getY() - this.getHeight()
+		};
+	}
+	recalcAiming(carrier = null) {
+		if(carrier === null) carrier = this;
+
+		if( ! carrier.weapon) return;
+
+		let mouse = Common.getMousePosition();
+		let handPos = carrier.getHandsPos();
+		let xDiff = mouse.x - handPos.x;
+		let yDiff = mouse.y - handPos.y;
+		let lengthBtwPoints = Math.sqrt(Math.pow(xDiff, 2) + Math.pow(yDiff, 2));
+		let steps = lengthBtwPoints / carrier.getSpeed();
+
+		this.aiming = {
+			length: lengthBtwPoints,
+			mouse: mouse,
+			steps: {
+				x: xDiff / steps,
+				y: yDiff / steps
+			}
+		};
+	}
+
+	setWidth(w) {
+		this.width = w;
+	}
+	setHeight(h) {
+		this.height = h;
+	}
 	getWidth() {
 		return this.width;
 	}
@@ -124,27 +160,34 @@ class Handler {
 		return this.speed;
 	}
 
-	collidesWith(element) {
-		let thisHB = this.getHitBox();
-		let elemHB = element.getHitBox();
-		let i;
+	collidesWith(...constructors) {
+		let elements = Common.getElementsOfConstructor(...constructors);
+		let collides = false;
 
-		for(i = 0; i < 4; i++) {
-			// handsPos.x > plateform.getX() &&
-			// handsPos.x < plateform.getHitBoxX() &&
-			// handsPos.y > plateform.getY() &&
-			// handsPos.y < plateform.getHitBoxY()
-			if(
-				thisHB[i][0] > elemHB[0][0] &&
-				thisHB[i][0] < elemHB[1][0] &&
-				thisHB[i][1] > elemHB[2][1] &&
-				thisHB[i][1] < elemHB[3][1]
-			) {
-				return true;
-			}
+		this.updateHitBox();
+
+		for(let i in elements) {
+			let element = elements[i];
+
+			element.updateHitBox();
+
+			// On vérifie si un des coins de la hitbox est compris dans ceux de l'élément
+			this.hitbox.forEach(hb => {
+				if(
+					hb[0] > element.hitbox[0][0] &&
+					hb[0] < element.hitbox[2][0] &&
+					hb[1] > element.hitbox[1][1] &&
+					hb[1] < element.hitbox[3][1]
+				) {
+					collides = element;
+					return false;
+				}
+			});
+
+			if(collides) break;
 		}
 
-		return false;
+		return collides;
 	}
 
 	draw() {
