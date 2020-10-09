@@ -126,18 +126,16 @@ const Common = new class {
 		Common.board.clearRect(0, 0, Common.canvas.width, Common.canvas.height);
 
 		var plateforms = Common.getElementsOfConstructor('Plateform');
-		var players = Common.getElementsOfConstructor('Player');
 		var badGuys = Common.getElementsOfConstructor('BadGuy');
 		var weapons = Common.getElementsOfConstructor('Weapon');
 		var bullets = Common.getElementsOfConstructor('Bullet');
-		var shapes = Common.getElementsOfConstructor('Shape');
+		var players = Common.getElementsOfConstructor('Player');
 
 		for(var i in plateforms) plateforms[i].onDraw();
-		for(var i in players) players[i].onDraw();
-		for(var i in weapons) weapons[i].onDraw();
 		for(var i in badGuys) badGuys[i].onDraw();
+		for(var i in weapons) weapons[i].onDraw();
+		for(var i in players) players[i].onDraw();
 		for(var i in bullets) bullets[i].onDraw();
-		for(var i in shapes) shapes[i].onDraw();
 
 		Common.calculateFrameRate();
 		Common.animate();

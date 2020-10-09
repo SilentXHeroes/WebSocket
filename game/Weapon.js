@@ -32,7 +32,7 @@ class Weapon extends Handler {
 			this.speedFire = setTimeout(() => {
 				this.fire();
 				this.speedFire = 0;
-			}, 100);
+			}, 50);
 		}
 	}
 
@@ -45,7 +45,7 @@ class Weapon extends Handler {
 	}
 
 	onDraw() {
-		// this.rapidFire();
+		this.rapidFire();
 
 		let player = this.collidesWith('Player');
 		if(player) {
