@@ -90,7 +90,7 @@ class Player extends Entity {
 
 		begin();
 		bg('red');
-		arc(this.aiming.mouse.x, this.aiming.mouse.y, 10);
+		circle(this.aiming.mouse.x, this.aiming.mouse.y, 7);
 		fill();
 
 		// while(handsPos.x > 0 && handsPos.y > 0 && handsPos.x < Common.canvas.width && handsPos.y < Common.canvas.height) {
@@ -106,7 +106,7 @@ class Player extends Entity {
 		// 		) {
 		// 			begin();
 		// 			bg('grey');
-		// 			arc(handsPos.x, handsPos.y, 4);
+		// 			circle(handsPos.x, handsPos.y, 4);
 		// 			fill();
 		// 		}
 		// 	});

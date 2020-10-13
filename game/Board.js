@@ -5,11 +5,12 @@ function clear() {
 	Common.board.clearRect(0, 0, Common.canvas.width, Common.canvas.height);
 }
 /* SHAPES */
-function line(x,y,w) {
-	lineWidth(w);
+function line(x,y,w = 0,cap = '') {
+	if(w > 0) lineWidth(w);
+	if(cap !== '') lineCap(cap);
 	Common.board.lineTo(x,y);
 }
-function arc(x,y,r) {
+function circle(x,y,r) {
 	Common.board.arc(x,y,r,0,Math.PI * 2);
 }
 function rect(x,y,w,h) {
@@ -41,6 +42,9 @@ function move(x,y) {
 }
 function lineWidth(w) {
 	Common.board.lineWidth = w;
+}
+function lineCap(cap) {
+	Common.board.lineCap = cap;
 }
 /* DRAW */
 function text(string, x, y) {
