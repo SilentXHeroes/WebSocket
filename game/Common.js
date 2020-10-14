@@ -165,22 +165,23 @@ const Common = new class {
 			max1,
 			max2;
 		Common.members.forEach((member,i) => {
-			let x,y;
+			let len;
 
 			// Legs
 			if(i % 2 === 0) {
 				max1 = Common.setAngle(member.step1 > 0 ? 0 : -135);
 				max2 = Common.setAngle(member.step2 > 0 ? -45 : -180);
-				y = yOrigin - Math.sin(member.x1) * length;
+				len = length;
 			}
 			// Arms
 			else {
 				max1 = Common.setAngle(member.step1 > 0 ? 0 : -135);
 				max2 = Common.setAngle(member.step2 > 0 ? 90 : -45);
-				y = yOrigin - Math.sin(member.x1) * length2;
+				len = length2;
 			}
 
-			x = xOrigin + Math.cos(member.x1) * length;
+			let x = xOrigin + Math.cos(member.x1) * len;
+			let y = yOrigin - Math.sin(member.x1) * len;
 
 			join('round');
 			
@@ -196,10 +197,10 @@ const Common = new class {
 			// Right arm
 			else if(i === 3) {
 				begin();
-				move(xOrigin,160);
+				move(xOrigin, yOrigin - bodyHeight * 0.5);
 				strokeColor('white');
-				line(x, y, 23, 'round');
-				line(x + Math.cos(member.x2) * length2, y - Math.sin(member.x2) * length2, bodyHeight * 0.25 * 1.1, 'round');
+				line(200, yOrigin - (len / 1.5), bodyHeight * 0.25 * 1.1, 'round');
+				line(x + Math.cos(member.x2) * (len / 1.5), y - Math.sin(member.x2) * (len / 1.5), bodyHeight * 0.25 * 1.1, 'round');
 				stroke();
 			}
 
@@ -212,13 +213,19 @@ const Common = new class {
 				line(x + Math.cos(member.x2) * length, y - Math.sin(member.x2) * length, bodyHeight * 0.3125, 'round');
 				stroke();
 			}
-			// Hands
+			// Arms
 			else {
+				// begin();
+				// move(xOrigin, yOrigin - bodyHeight * 0.5);
+				// strokeColor('orange');
+				// line(x, y, bodyHeight * 0.25, 'round');
+				// line(x + Math.cos(member.x2) * length2, y - Math.sin(member.x2) * length2, bodyHeight * 0.25, 'round');
+				// stroke();
 				begin();
-				move(xOrigin,160);
+				move(xOrigin, yOrigin - bodyHeight * 0.5);
 				strokeColor('orange');
-				line(x, y, bodyHeight * 0.25, 'round');
-				line(x + Math.cos(member.x2) * length2, y - Math.sin(member.x2) * length2, bodyHeight * 0.25, 'round');
+				line(200, yOrigin - (len / 1.5), bodyHeight * 0.25, 'round');
+				line(x + Math.cos(member.x2) * (len / 1.5), y - Math.sin(member.x2) * (len / 1.5), bodyHeight * 0.25, 'round');
 				stroke();
 			}
 
