@@ -82,19 +82,19 @@ class Player extends Entity {
 		let stepX = this.aiming.steps.x;
 		let stepY = this.aiming.steps.y;
 
-		begin();
-		move(handsPos.x, handsPos.y);
-		strokeColor('red');
-		line(this.aiming.mouse.x, this.aiming.mouse.y, 2);
-		stroke();
+		// begin();
+		// move(handsPos.x, handsPos.y);
+		// strokeColor('red');
+		// line(this.aiming.mouse.x, this.aiming.mouse.y, 2);
+		// stroke();
 
 		begin();
-		strokeColor('red');
-		arc(this.aiming.mouse.x, this.aiming.mouse.y, 10);
-		stroke();
+		bg('red');
+		circle(this.aiming.mouse.x, this.aiming.mouse.y, 7);
+		fill();
 
 		// while(handsPos.x > 0 && handsPos.y > 0 && handsPos.x < Common.canvas.width && handsPos.y < Common.canvas.height) {
-		// 	let plateforms = Common.getElementsOfConstructor('Plateform');
+		// 	let plateforms = Common.getElementsOfConstructor('Plateform','BadGuy');
 
 		// 	plateforms.forEach(plateform => {
 		// 		if(
@@ -106,7 +106,7 @@ class Player extends Entity {
 		// 		) {
 		// 			begin();
 		// 			bg('grey');
-		// 			arc(handsPos.x, handsPos.y, 4);
+		// 			circle(handsPos.x, handsPos.y, 4);
 		// 			fill();
 		// 		}
 		// 	});
@@ -134,17 +134,7 @@ class Player extends Entity {
 		document.addEventListener("keyup", (e) => {
 			this._playerEvents(e);
 		});
-
-		Common.canvas.node.addEventListener("click", () => {
-			if( ! this.weapon) return;
-			this.weapon.fire();
-		});
-
-		Common.canvas.node.addEventListener('mousemove', () => {
-			if( ! this.weapon) return;
-			this.recalcAiming();
-			// this.weapon.fire(e);
-		});
+		
 	}
 
 	_playerEvents(e) {
@@ -183,7 +173,7 @@ class BadGuy extends Entity {
 		this.printVitality();
 
 		begin();
-		bg('black');
+		bg('blue');
 		rect(this.getX(), this.getY(), this.getWidth(), this.getWidth());
 		fill();
 	}

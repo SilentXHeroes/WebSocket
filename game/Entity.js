@@ -39,6 +39,15 @@ class Entity extends Handler {
 			left: false,
 			right: false
 		};
+
+		if(typeof Common.events.weapon === 'undefined') {
+			Common.events.weapon = {
+				click: () => { this.weapon.fire(); },
+				mouseDown: () => { this.weapon.setFire(true); },
+				mouseUp: () => { this.weapon.setFire(false); },
+				mouseMove: () => { this.recalcAiming(); }
+			};
+		}
 	}
 
 	// SETTERS
@@ -75,9 +84,10 @@ class Entity extends Handler {
 		this.wallJump = side;
 	}
 	setSiblingsPlateforms() {
-		let moving = this;
-		this.siblingsPlateforms = Common.getElements().filter(function(element) {
-			return element.is('Plateform') && moving.getHitBoxX() + 10 > element.getX() && moving.getX() - 10 < element.getHitBoxX();
+		this.siblingsPlateforms = Common.elements.filter(element => {
+			if( ! element.is('Plateform')) return false;
+			// Proche gauche OU proche droite
+			return this.getX() - 50 < element.getHitBoxX() || this.getHitBoxX() + 50 > element.getX();
 		});
 	}
 
@@ -145,8 +155,20 @@ class Entity extends Handler {
 		this.weapon.setFire(false);
 	}
 
+	dropWeapon() {
+		Common.newElement('Weapon', this.weapon);
+
+		this.weapon = false;
+
+		Common.canvas.node.removeEventListener("click", Common.events.weapon.click);
+		Common.canvas.node.removeEventListener('mousedown', Common.events.weapon.mouseDown);
+		Common.canvas.node.removeEventListener('mouseup', Common.events.weapon.mouseUp);
+		Common.canvas.node.removeEventListener('mousemove', Common.events.weapon.mouseMove);
+	}
+
 	carryWeapon(weapon) {
-		this.weapon = weapon;
+		weapon.carryBy(this);
+		this.weapon = Common.cloneClass(weapon);
 		this.recalcAiming();
 	}
 
@@ -211,10 +233,7 @@ class Entity extends Handler {
 	// Helpers
 
 	isCurrentPlateform(plateform) {
-		return this.isOnGround() &&
-				this.currentPlateform.getX() === plateform.getX() &&
-				this.currentPlateform.getY() === plateform.getY() &&
-				this.currentPlateform.getWidth() === plateform.getWidth();
+		return this.isOnGround() && this.currentPlateform.uniqueID === plateform.uniqueID;
 	}
 
 	hasWallJump() {
@@ -333,7 +352,7 @@ class Entity extends Handler {
 			var plateform = this.siblingsPlateforms[i];
 
 			if(i > 0 &&
-				!this.isCurrentPlateform(plateform) &&
+				! this.isCurrentPlateform(plateform) &&
 				this.getHitBoxX() > plateform.getX() && 
 				this.getX() < plateform.getHitBoxX() &&
 				this.getHitBoxY() > plateform.getY() &&

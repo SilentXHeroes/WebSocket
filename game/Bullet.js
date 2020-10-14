@@ -39,7 +39,7 @@ class Bullet extends Handler {
 	onDraw() {
 		begin();
 		bg('grey');
-		arc(this.getScrollX(false), this.getY(false), this.width);
+		circle(this.getScrollX(false), this.getY(false), this.width);
 		fill();
 
 		if(
