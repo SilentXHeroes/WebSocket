@@ -18,7 +18,7 @@ class Entity extends Handler {
 		// 	jump: 1.5
 		// };
 
-		this.speed = 1.2; // * 0.25;
+		this.speed = 1; // * 0.25;
 		this.speedScaleAfterWallJump = 0.5; // * 0.33
 		this.velocity = {
 			initial: -5, // * 0.25
@@ -35,10 +35,14 @@ class Entity extends Handler {
 		this.setWalking(false);
 		this.weapon = false;
 		this.wallJump = false;
+		this.bodyHeight = 30;
+		this.memberLength = this.bodyHeight * 0.25;
 		this.colision = {
 			left: false,
 			right: false
 		};
+
+		this.standing();
 
 		if(typeof Common.events.weapon === 'undefined') {
 			Common.events.weapon = {
@@ -195,15 +199,24 @@ class Entity extends Handler {
 		}
 	}
 
+	isJumping() {
+		return this.vy !== 0;
+	}
+
 	walk(walking, side = false) {
 		if(this.is('Player')) {
 			this.keydown[side] = walking;
 
 			var opposite = side === 'left' ? 'right' : 'left';
 
+			if(walking) {
+				this.running();
 			// Si appui des touches directionnelles constant
 			// On vérifie si une touche est toujours appuyée
-			if(!walking) {
+			}
+			else {
+				this.standing();
+
 				if((side === "left" && this.keydown.right) || (side === "right" && this.keydown.left)) {
 					side = opposite;
 					walking = true;
@@ -378,11 +391,164 @@ class Entity extends Handler {
 		return false;
 	}
 
+	print() {
+		let xOrigin = this.getX();
+		let yOrigin = this.getY();
+		this.members.forEach((member,i) => {
+			let yFrom = yOrigin;
+			let max1, max2;
+
+			// Legs
+			if(i % 2 === 0) {
+				max1 = Common.setAngle(member.step1 > 0 ? 0 : -135);
+				max2 = Common.setAngle(member.step2 > 0 ? -45 : -180);
+				yFrom += this.bodyHeight * 0.1;
+			}
+			// Arms
+			else {
+				max1 = Common.setAngle(member.step1 > 0 ? 0 : -135);
+				max2 = Common.setAngle(member.step2 > 0 ? 90 : -45);
+				yFrom -= this.bodyHeight * 0.5;
+			}
+
+			let x = xOrigin + Math.cos(member.x1) * this.memberLength * this.getFacingOperator();
+			let y = yFrom - Math.sin(member.x1) * this.memberLength;
+
+			join('round');
+
+			this.drawMember({
+				i: i,
+				yFrom: yFrom,
+				x: x,
+				y: y,
+				angle: member.x2
+			});
+
+			if(i === 1) {
+				// Body
+				begin();
+				move(xOrigin, yOrigin);
+				strokeColor('white');
+				line(xOrigin, yOrigin - this.bodyHeight + this.bodyHeight * 0.5, this.bodyHeight * 0.375 * 1.1, 'round');
+				stroke();
+
+				begin();
+				move(xOrigin, yOrigin);
+				strokeColor('black');
+				line(xOrigin, yOrigin - this.bodyHeight + this.bodyHeight * 0.5, this.bodyHeight * 0.375, 'round');
+				stroke();
+
+				begin();
+				bg('blue');
+				Common.board.arc(xOrigin, yOrigin,  this.bodyHeight * 0.375 / 2, 0, Math.PI);
+				fill();
+
+				begin();
+				bg('blue');
+				rect(xOrigin - this.bodyHeight * 0.375 / 2, yOrigin - this.bodyHeight * 0.15, this.bodyHeight * 0.375, this.bodyHeight * 0.15);
+				fill();
+
+				// Head
+				begin();
+				lineWidth(this.bodyHeight * 0.02);
+				strokeColor('white');
+				bg(this.color);
+				circle(xOrigin, yOrigin - this.bodyHeight + this.bodyHeight * 0.05, this.bodyHeight * 0.26);
+				fill();
+				stroke();
+			}
+
+			if(this.isRunning && ! this.isJumping()) {
+				if(member.step1 < 0 && Common.round(member.x1, 4) < max1) member.step1 *= -1;
+				if(member.step1 > 0 && Common.round(member.x1, 4) > max1) member.step1 *= -1;
+				if(member.step2 < 0 && Common.round(member.x2, 4) < max2) member.step2 *= -1;
+				if(member.step2 > 0 && Common.round(member.x2, 4) > max2) member.step2 *= -1;
+
+				member.x1 += member.step1;
+				member.x2 += member.step2;
+			}
+		});
+
+		if(this.is('Player')) {
+			font(15, 'Comic Sans MS');
+			bg('black');
+			align('center');
+			text(this.name, this.getX() + this.getWidth() / 2, this.getY() - 10);
+		}
+	}
+
+	standing() {
+		this.isRunning = false;
+		this.setMembersAngles([
+			[-90, -90],
+			[-90, -90],
+			[-90, -90],
+			[-90, -90]
+		]);
+	}
+
+	running() {
+		if(this.isRunning) return;
+
+		this.isRunning = true;
+		this.setMembersAngles([
+			[-45, -135],
+			[-90, 0],
+			[-90, -90],
+			[-45, 45]
+		]);
+	}
+
+	setMembersAngles(angles) {
+		let speedrun = 0.03;
+		this.members = [];
+
+		angles.forEach((angle,i) => {
+			let multiply = i === 0 || i === 3 ? 1 : -1;
+
+			this.members.push({
+				x1: Common.setAngle(angle[0]),
+				x2: Common.setAngle(angle[1]),
+				step1: speedrun * multiply,
+				step2: speedrun * multiply
+			});
+		});
+	}
+
+	drawMember(data) {
+		let thickness;
+		let color = this.color;
+
+		// Legs
+		if(data.i % 2 === 0) {
+			thickness = this.bodyHeight * 0.3;
+			color = this.is('BadGuy') ? 'darkgreen' : 'blue';
+		}
+		else {
+			thickness = this.bodyHeight * 0.23;
+		}
+
+		begin();
+		move(this.xOrigin, data.yFrom);
+		strokeColor('white');
+		line(data.x, data.y, thickness * 1.1, 'round');
+		line(data.x + Math.cos(data.angle) * this.memberLength * this.getFacingOperator(), data.y - Math.sin(data.angle) * this.memberLength, thickness * 1.1, 'round');
+		stroke();
+
+		begin();
+		move(this.xOrigin, data.yFrom);
+		strokeColor(color);
+		line(data.x, data.y, thickness, 'round');
+		line(data.x + Math.cos(data.angle) * this.memberLength * this.getFacingOperator(), data.y - Math.sin(data.angle) * this.memberLength, thickness, 'round');
+		stroke();
+	}
+
 	onDraw() {
 		super.draw();
 		
 		this.setSiblingsPlateforms();
 		this.isWalking();
 		this.onGround();
+		this.print();
 	}
 }

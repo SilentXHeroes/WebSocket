@@ -20,6 +20,7 @@ class Player extends Entity {
 		this.jumpingFromKeyDown = false;
 		this.onMove = false;
 		this.aiming = false;
+		this.color = 'burlywood';
 		this.keydown = {
 			left: false,
 			right: false,
@@ -48,7 +49,7 @@ class Player extends Entity {
 		this.stopWalling();
 		this.verifyKeyDowns();
 		this.printAim();
-		this.print();
+		// this.print();
 	}
 
 	stopWalling() {
@@ -116,13 +117,13 @@ class Player extends Entity {
 		// }
 	}
 
-	print() {
-		font(15, 'Comic Sans MS');
-		bg('black');
-		align('center');
-		text(this.name, this.getX() + this.getWidth() / 2, this.getY() - 10);
-		rect(this.getX(), this.getY(), this.getWidth(), this.getHeight());
-	}
+	// print() {
+	// 	font(15, 'Comic Sans MS');
+	// 	bg('black');
+	// 	align('center');
+	// 	text(this.name, this.getX() + this.getWidth() / 2, this.getY() - 10);
+	// 	rect(this.getX(), this.getY(), this.getWidth(), this.getHeight());
+	// }
 
 	setEvents() {
 		if( ! this.currentPlayer) return;
@@ -156,6 +157,7 @@ class BadGuy extends Entity {
 		this.health = health;
 		this.totalHealth = health;
 		this.isDead = false;
+		this.color = 'saddlebrown';
 
 		let position = this.getRandomPosition();
 
@@ -171,10 +173,5 @@ class BadGuy extends Entity {
 	onDraw() {
 		super.onDraw();
 		this.printVitality();
-
-		begin();
-		bg('blue');
-		rect(this.getX(), this.getY(), this.getWidth(), this.getWidth());
-		fill();
 	}
 }
