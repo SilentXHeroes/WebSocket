@@ -15,7 +15,7 @@ class Bullet extends Handler {
 		this.shooter = shooter;
 		this.out = false;
 
-		this.recalcAiming(this.shooter);
+		this.setAim();
 	}
 
 	setDommage(amount) {
@@ -23,11 +23,14 @@ class Bullet extends Handler {
 	}
 
 	onHit() {
-		let element = this.collidesWith('Plateform', 'BadGuy');
+		let element = this.collidesWith("Plateform", "BadGuy", "Player");
 		if(element) {
+			if(this.shooter.getUniqueID() === element.getUniqueID()) return false;
+			
 			if(
-				(element.is('Player') && this.shooter.is('BadGuy')) ||
-			   	(element.is('BadGuy') && this.shooter.is('Player'))
+				(element.is("Player") && this.shooter.is("Player")) ||
+				(element.is("Player") && this.shooter.is("BadGuy")) ||
+			   	(element.is("BadGuy") && this.shooter.is("Player"))
 			){
 				element.injured(this.dommage);
 			}
@@ -36,26 +39,36 @@ class Bullet extends Handler {
 		}
 	}
 
+	setAim() {
+		this.shooter.setAim();
+		this.aiming = this.shooter.getAim();
+	}
+
+	getShooter() {
+		return this.shooter;
+	}
+
 	onDraw() {
+		super.draw();
+		
 		begin();
-		bg('grey');
-		circle(this.getScrollX(false), this.getY(false), this.width);
+		bg('black');
+		circle(this.getX(), this.getY(), this.width);
 		fill();
 
 		if(
-			this.getScrollX(false) > Common.canvas.width + 100 ||
-			this.getScrollX(false) < -100 || 
+			this.getX() > Common.canvas.width + 100 ||
+			this.getX() < -100 || 
 			this.onHit() || 
-			this.getY(false) < -100 || 
-			this.getY(false) > Common.canvas.height + 100
+			this.getY() < -100 || 
+			this.getY() > Common.canvas.height + 100
 		) {
 			this.destroy();
 			return;
 		}
-
 		// this.drawHitBox();
-
-		this.setScrollX(this.getScrollX(false) + this.aiming.steps.x * this.speed);
-		this.setY(this.getY(false) + this.aiming.steps.y * this.speed);
+		
+		this.setX(this.x + this.aiming.steps.x * this.speed);
+		this.setY(this.getY() + this.aiming.steps.y * this.speed);
 	}
 }

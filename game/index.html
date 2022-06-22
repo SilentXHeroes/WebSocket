@@ -17,30 +17,50 @@
 				top: 50%;
 				left: 50%;
 				transform: translate(-50%, -50%);
+				/*width: 100%;
+				height: 100%;
+				display: flex;
+				flex-direction: column;*/
 			}
 			canvas {
 				border: 1px solid black;
-				cursor: none;
+				/*cursor: none;*/
+				flex: 1;
 			}
+			/*
+			#container {
+				display: none;
+			}
+			*/
 		</style>
 	</head>
 	<body>
 		<div id="container">
 			<label>Pseudo: </label>
 			<input id="player" type="text">
-			<label>Dimensions: </label>
-			<input id="width" type="number" min="25" max="100" value="25">
+			<!-- <label>Dimensions: </label>
+			<input id="width" type="number" min="25" max="100" value="80">
 			<label> x </label>
-			<input id="height" type="number" min="25" max="100" value="25">
+			<input id="height" type="number" min="25" max="100" value="80">
 			<label>Vitesse: </label>
 			<input id="speed" type="number" min="0" max="100" value="5" step=".1">
 			<label>Hauteur de saut: </label>
-			<input id="jumpHeight" type="number" min="0" max="100" value="15" step=".1">
+			<input id="jumpHeight" type="number" min="0" max="100" value="15" step=".1"> -->
 			<button id="play">Jouer</button>
-			<canvas id="canvas" width="1000" height="500"></canvas>
+			<canvas id="canvas" width="1500" height="750"></canvas>
 		</div>
+		<!-- <canvas id="image"></canvas> -->
 		<script type="text/javascript" src="/socket.io/socket.io.js"></script>
 		<script type="text/javascript" src="Common.js"></script>
+		<script type="text/javascript" src="Image.js"></script>
+		<script type="text/javascript">
+			canvas.width = canvas.clientWidth;
+			canvas.height = canvas.clientHeight;
+
+			const Images = new _Image();
+			const Common = new _Common();
+		</script>
+		<script type="text/javascript" src="Member.js"></script>
 		<script type="text/javascript" src="Handler.js"></script>
 		<script type="text/javascript" src="Entity.js"></script>
 		<script type="text/javascript" src="Entities.js"></script>
@@ -48,21 +68,22 @@
 		<script type="text/javascript" src="Bullet.js"></script>
 		<script type="text/javascript" src="Plateform.js"></script>
 		<script type="text/javascript" src="Board.js"></script>
-		<script type="module">
-
-			document.addEventListener('contextmenu', (e) => {
-				e.preventDefault();
-				return false;
-			})
+		<script type="text/javascript">
+			// document.addEventListener('contextmenu', (e) => {
+			// 	e.preventDefault();
+			// 	return false;
+			// });
 
 			document.getElementById("play").addEventListener("click", (e) => {
+				if(typeof Common.current !== "undefined") return;
+
 				let infos = {
 					id: Common.socket.id, 
 					name: document.getElementById("player").value,
-					width: document.getElementById("width").value,
-					height: document.getElementById("height").value,
-					speed: document.getElementById("speed").value,
-					jumpH: document.getElementById("jumpHeight").value
+					// width: document.getElementById("width").value,
+					// height: document.getElementById("height").value,
+					// speed: document.getElementById("speed").value,
+					// jumpH: document.getElementById("jumpHeight").value
 				};
 
 				let player = Common.newElement('Player', infos, true);
@@ -70,7 +91,57 @@
 				Common.socket.emit("player-connect", player);
 			});
 
-			Common.startGame();
+			// var sprites = {
+			// 	"Attacking": 12,
+			// 	"Dying": 15,
+			// 	"Hurt": 12,
+			// 	"Idle": 12,
+			// 	"Idle Blink": 12,
+			// 	"Jump Loop": 6,
+			// 	"Jump Start": 6,
+			// 	"Taunt": 18,
+			// 	"Walking": 18
+			// };
+			// var imgW = 720 / 7;
+			// var imgH = 490 / 7;
+			// var canvasImage = document.getElementById("image");
+			// var board = canvasImage.getContext("2d");
+			// var count = 0;
+			// var loaded = 0;
+			// var spriteDirection = "right";
+
+			// canvasImage.width = imgW * 18;
+			// canvasImage.height = imgH * 9;
+
+			// for(var i in sprites) {
+			// 	let name = i;
+			// 	count += sprites[i];
+
+			// 	if(name === "Idle Blink") name = "Idle Blinking";
+			// 	for(let j = 0; j < sprites[i]; j++) {
+			// 		let img = Images.load("extra." + i + "."+ j, "PNG/Minotaur_01/PNG Sequences/" + i + "/Minotaur_01_" + name + "_0" + ( j < 10 ? '0' : '' ) + j + ".png");
+			// 		img.onload = function() {
+			// 			loaded++;
+			// 			if(loaded === count) insertImages();
+			// 		};
+			// 	}
+			// }
+
+			function insertImages() {
+				let x, y = 0;
+				if(spriteDirection === "left") {
+					board.translate(canvasImage.width, 0);
+				    board.scale(-1,1);
+				}
+				for(let i in Images.extra) {
+					x = spriteDirection === "right" ? 0 : canvasImage.width;
+					for(let j in Images.extra[i]) {
+						board.drawImage(Images.extra[i][j], x - (spriteDirection === "left" ? imgW : 0), y, imgW, imgH);
+						x += imgW * (spriteDirection === "right" ? 1 : -1);
+					}
+					y += imgH;
+				}
+			}
 
 		</script>
 	</body>

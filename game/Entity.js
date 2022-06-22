@@ -3,69 +3,170 @@ class Entity extends Handler {
 	constructor() {
 		super();
 
-		// this.speed = Common.calcForFrameRate(5);
-		// this.velocity = {
-		// 	initial: Common.calcForFrameRate(-20),
-		// 	onWall: Common.calcForFrameRate(1.5),
-		// 	jump: Common.calcForFrameRate(1.5)
-		// };
-
-		// this.speed = 5;
-		// this.speedScaleAfterWallJump = 0.15;
-		// this.velocity = {
-		// 	initial: -20,
-		// 	onWall: 2,
-		// 	jump: 1.5
-		// };
-
-		this.speed = 1; // * 0.25;
-		this.speedScaleAfterWallJump = 0.5; // * 0.33
+		this.facing = 'right';
+		this.speed = 4;
+		this.speedrun = .05;
+		this.speedScaleAfterWallJump = 0.5;
+		this.maxJumpHeight = 0;
+		this.initialSpeed = this.speed;
 		this.velocity = {
-			initial: -5, // * 0.25
-			onWall: 0.5, // * 0.25
-			jump: 0.1 // * 0.066
+			initial: 20,
+			onWall: -0.5,
+			jump: 1.1
 		};
 
-		// console.log(this.speed);
-		// console.log(this.velocity);
-
-		this.initialSpeed = this.speed;
-
-		this.setVelocity(1);
+		this.setVelocity(0);
 		this.setWalking(false);
-		this.weapon = false;
+		this.weapon = null;
 		this.wallJump = false;
-		this.bodyHeight = 30;
-		this.memberLength = this.bodyHeight * 0.25;
-		this.colision = {
+		this.attacking = false;
+		// this.height = Common.calcY("8%");
+		// this.width = this.bodyHeight * 0.2;
+		this.currentAnimationFrameIndex = 0;
+		this.animationEnabled = true;
+		this.animationFrames = Common.frames.player;
+		this.siblingsPlateforms = [];
+		this.isDead = false;
+		this.colision = { 
 			left: false,
 			right: false
 		};
+		this.keydown = {
+			left: false,
+			right: false,
+			jump: false
+		};
+	}
+
+	onLoad() {
+		this.setMaxValues();
+
+		if(this.is("Player")) this.setUniqueID(this.getId());
+		var thos = this;
+		setTimeout(function() {
+			let entity = Common.getElementById(thos.getUniqueID());
+			thos.members = {
+				0: new Member(entity, "arm.left"),
+				1: new Member(entity, "leg.left"),
+				2: new Member(entity, "body"),
+				3: new Member(entity, "head"),
+				4: new Member(entity, "leg.right"),
+				5: new Member(entity, "arm.right")
+			};
+			thos.members.arm = {
+				left: thos.members[0],
+				right: thos.members[5],
+			};
+			thos.members.leg = {
+				left: thos.members[1],
+				right: thos.members[4],
+			};
+		});
+	}
+
+	setMaxValues() {
+		let vy = this.velocity.initial;
+
+		do {
+			this.maxJumpHeight += vy;
+			vy -= this.velocity.jump;
+		} while(vy > 0);
 
 		this.standing();
+	}
 
-		if(typeof Common.events.weapon === 'undefined') {
-			Common.events.weapon = {
-				click: () => { this.weapon.fire(); },
-				mouseDown: () => { this.weapon.setFire(true); },
-				mouseUp: () => { this.weapon.setFire(false); },
-				mouseMove: () => { this.recalcAiming(); }
-			};
+	canJump(idx = -1) {
+		if(idx === -1 && ! this.isFalling() && ! this.isJumping() && ! this.walking) return [];
+		let nearCeil = this.siblingsPlateforms.find(plateform =>
+			plateform.getHitBoxX() > this.getX() &&
+			plateform.getY() > this.getHitBoxY() && 
+			plateform.getY() < this.getHitBoxY() + this.maxJumpHeight / 2
+		);
+		if(nearCeil) {
+			nearCeil.type = "near-ceil";
+			return [];
 		}
+
+		let thos = this;
+		let toJump = [];
+		let plateforms = Common.getPlateforms();
+		if(idx > -1) plateforms = [plateforms[idx]];
+
+		plateforms.forEach(plateform => {
+			// On ignore les plateformes
+			if(
+				// Plateforme utilisée
+				plateform.type === "current" ||
+				plateform.type === "ground" ||
+				// Plateforme trop haute
+				(plateform.getHitBoxY() > this.getY() + this.maxJumpHeight) ||
+				// Plateforme trop basse
+				(plateform.getHitBoxY() < this.getY()) ||
+				// Plateformes à gauche de l'entité regardant à droite
+				(this.facing === "right" && plateform.getHitBoxX() < this.getX()) ||
+				// Plateformes à droite de l'entité regardant à gauche
+				(this.facing === "left" && plateform.getX() > this.getHitBoxX())
+			) {
+				return;
+			}
+
+		    function calc(from) {
+		        let x = 0;
+		        
+		        if(from === "x1") x = Math.floor(plateform.getX() + 10);
+		        else x = Math.ceil(plateform.getHitBoxX() - 10);
+		        
+		        x = thos.getX() - x;
+		        x = Math.abs(parseInt(x / thos.speed));
+		        
+		        let path = Array.from({length: x + 1}, (v,k) => thos.velocity.initial - k * thos.velocity.jump <= 0 ? thos.velocity.initial - (k+1) * thos.velocity.jump : thos.velocity.initial - k * thos.velocity.jump);
+		        let total = path.reduce((a,b) => a + b);
+		        return thos.getY() - plateform.getHitBoxY() + total;
+		    }
+
+		    let data = {
+		        x1: calc("x1"),
+		        x2: calc("x2"),
+		        obj: plateform
+		    };
+		    if(
+		    	(data.x1 < 0 && data.x2 < 0 && plateform.getX() < this.getX() && plateform.getHitBoxX() > this.getHitBoxX()) ||
+		    	(this.facing === "right" && data.x1 > 0 && data.x2 < 0) || 
+		    	(this.facing === "left" && data.x2 > 0 && data.x1 < 0)
+	    	) {
+		    	toJump.push(data);
+			}
+		});
+
+		this.log = false;
+		return toJump;
 	}
 
 	// SETTERS
 
 	setVelocity(v) {
 		this.vy = v;
+		// this.sendSocket({
+		// 	action: "velocity", 
+		// 	value: v
+		// });
 	}
 	setFacing(side) {
 		this.facing = side;
+		// this.sendSocket({
+		// 	action: "facing", 
+		// 	state: side
+		// });
 	}
-	setColision(side, value) {
-		this.colision[side] = value;
+	setColision(plateform) {
+		this.colision[this.getFacing()] = plateform;
+		// this.sendSocket({
+		// 	action: "colision-set", 
+		// 	id: plateform.getUniqueID()
+		// });
 	}
 	removeColision() {
+		// if(this.getColision()) this.sendSocket({ action: "colision-remove" });
 		this.colision.left = false;
 		this.colision.right = false;
 	}
@@ -75,11 +176,18 @@ class Entity extends Handler {
 	}
 	setWalking(walking) {
 		this.walking = walking;
+		// this.sendSocket({
+		// 	action: "walk", 
+		// 	state: walking,
+		// 	side: this.facing,
+		// 	x: this.getX(), 
+		// 	y: this.getY(), 
+		// });
 	}
 	setWallJump(side) {
-		if(!side) {
+		if( ! side) {
 			this.setSpeed(this.speed);
-			this.setWalking(false);
+			if(this.is("Player")) this.setWalking(false);
 		}
 		else {
 			// this.setSpeed(this.speed * -1);
@@ -88,11 +196,36 @@ class Entity extends Handler {
 		this.wallJump = side;
 	}
 	setSiblingsPlateforms() {
-		this.siblingsPlateforms = Common.elements.filter(element => {
-			if( ! element.is('Plateform')) return false;
-			// Proche gauche OU proche droite
-			return this.getX() - 50 < element.getHitBoxX() || this.getHitBoxX() + 50 > element.getX();
-		});
+		if( ! this.isFalling() && ! this.isJumping() && ! this.walking) return;
+
+		this.siblingsPlateforms = this.getSiblingsElements("Plateform");
+
+		let nextStep = this.speed * this.getFacingOperator();
+
+		for(var i in this.siblingsPlateforms) {
+			let plateform = this.siblingsPlateforms[i];
+			plateform.type = "TOO FAR";
+
+			if(this.isCurrentPlateform(plateform)) {
+				plateform.type = "current";
+			}
+			else if(this.getX() + nextStep <= plateform.getHitBoxX() && this.getHitBoxX() + nextStep >= plateform.getX()) {
+				let nextVelocity = this.getVelocity() - this.velocity.jump;
+
+				if(this.getY() >= plateform.getHitBoxY() && this.getY() + nextVelocity <= plateform.getHitBoxY()) {
+					plateform.type = "ground";
+				}
+				else if(this.getHitBoxY() <= plateform.getY() && this.getHitBoxY() + nextVelocity >= plateform.getY()) {
+					plateform.type = "ceil";
+				}
+				else if(this.getY() + nextVelocity < plateform.getHitBoxY() && this.getHitBoxY() + nextVelocity >= plateform.getY()) {
+					plateform.type = "wall";
+				}
+			}
+		}
+	}
+	setSpeed(speed) {
+		this.speed = speed;
 	}
 
 	// GETTERS
@@ -121,23 +254,81 @@ class Entity extends Handler {
 	}
 	getColisionSide() {
 		if(this.colision.left) return 'left';
-		return 'right';
+		if(this.colision.right) return 'right';
+		return false;
 	}
 	getCurrentPlateform() {
 		return this.currentPlateform;
 	}
 	getHandsPos() {
 		return {
-			x: this.getScrollX() + ( this.getFacingOperator() > 0 ? this.getWidth() : 0),
-			y: this.getY(false) + this.getWidth() / 2
+			x: this.getX() + ( this.getFacingOperator() > 0 ? this.getWidth() : 0),
+			y: this.getY() + this.getHeight() / 2
 		};
+	}
+	getAnimationFrame() {
+		let animationFrame = this.animationFrames.standing;
+		if(this.isRunning) animationFrame = this.animationFrames.running;
+
+		if(this.currentAnimationFrameIndex >= animationFrame.length) this.currentAnimationFrameIndex = 0;
+
+		return animationFrame[this.currentAnimationFrameIndex];
+	}
+	animate() {
+		this.currentAnimationFrameIndex++;
+		// return this.getAnimationFrame();
+	}
+	enableAnimation()
+	{
+		this.animationEnabled = true;
+	}
+	disableAnimation()
+	{
+		this.animationEnabled = false;
+	}
+	addAnimation() {
+		let animationFrame = [
+			this.members.arm.left.getAngle(true),
+			this.members.leg.left.getAngle(true),
+			0,
+			0,
+			this.members.leg.right.getAngle(true),
+			this.members.arm.right.getAngle(true)
+		];
+
+		let addTo = this.animationFrames.standing;
+		if(this.isRunning) addTo = this.animationFrames.running;
+
+		addTo.push(animationFrame);
+
+		return animationFrame;
+	}
+
+	getHealth() {
+		return this.health;
+	}
+
+	getVitality() {
+		return this.vitality;
+	}
+	
+	getSpeed() {
+		return this.speed;
+	}
+
+	// Prototypes
+
+	injured(amount) {
+		this.health -= amount;
+
+		if(this.health <= 0) this.destroy();
 	}
 
 	printVitality() {
 		let vitaWidth = 40;
 		let vitaHeight = 5;
 		let x = this.getX() + (this.getWidth() / 2) - (vitaWidth / 2);
-		let y = this.getY() - (this.getHeight() / 2);
+		let y = this.getHitBoxY() + 5;
 
 		begin();
 		bg('red');
@@ -145,56 +336,88 @@ class Entity extends Handler {
 		fill();
 		begin();
 		bg('green');
-		rect(x, y, vitaWidth * ( this.health / this.totalHealth ), vitaHeight);
+		rect(x, y, vitaWidth * ( this.health / this.vitality ), vitaHeight);
 		fill();
 	}
 
-	// Prototypes
-
 	fire() {
-		this.weapon.setFire(true);
+		if(this.weapon) this.weapon.fire("semi-automatic");
 	}
 
-	stopFire() {
-		this.weapon.setFire(false);
+	setFire(firing) {
+		if(this.weapon) this.weapon.setFire(firing);
+	}
+
+	setAiming(aim) {
+		this.aiming = aim;
+	}
+
+	getAim() {
+		if(this.isArmed()) {
+			return this.getWeapon().getAim();
+		}
+	}
+
+	setAim() {
+		if(this.isArmed()) {
+			this.getWeapon().setAim();
+		}
+	}
+
+	setWeapon(weapon) {
+		this.weapon = weapon;
+	}
+
+	getWeapon() {
+		return this.weapon;
+	}
+
+	isArmed() {
+		return this.getWeapon() !== null;
+	}
+
+	isUnarmed() {
+		return this.getWeapon() === null;
 	}
 
 	dropWeapon() {
-		Common.newElement('Weapon', this.weapon);
+		if(this.isUnarmed()) return;
 
-		this.weapon = false;
+		Common.newElement('Weapon', this.getWeapon());
 
-		Common.canvas.node.removeEventListener("click", Common.events.weapon.click);
-		Common.canvas.node.removeEventListener('mousedown', Common.events.weapon.mouseDown);
-		Common.canvas.node.removeEventListener('mouseup', Common.events.weapon.mouseUp);
-		Common.canvas.node.removeEventListener('mousemove', Common.events.weapon.mouseMove);
+		this.weapon = null;
 	}
 
 	carryWeapon(weapon) {
+		if(weapon.carrier !== null) return;
+
 		weapon.carryBy(this);
-		this.weapon = Common.cloneClass(weapon);
-		this.recalcAiming();
+		console.log(Common.getElementsOfConstructor("Weapon"));
+		Common.destroyElement(weapon);
+		console.log(Common.getElementsOfConstructor("Weapon"));
+
+		this.setWeapon(weapon);
+		this.setAim();
+		this.sendSocket({ action: "carry-weapon", type: weapon.type, aim: this.aiming })
 	}
 
 	jump(jumping) {
-		var colision = this.getColision();
-
-		if(this.is('Player')) {
-			this.keydown.jump = jumping;
-		}
+		this.keydown.jump = jumping;
 
 		if(jumping) {
-			if(this.isOnGround() || (colision && this.isWallCLimbing(this.getColisionSide()))) {
+			let isWallClimbing = this.isWallClimbing(this.getFacing());
+			if(this.isOnGround() || isWallClimbing) {
+				this.attacking = false;
+				this.setCurrentPlateform(false);
+				this.setVelocity(this.velocity.initial);
+
 				// Saute du côté opposé du mur
-				if(this.is('Player') && !this.isOnGround()) {
+				if(this.is('Player','BadGuy') && isWallClimbing) {
 					this.removeColision();
 					this.setFacing(this.getOppositeFacing());
 					this.setWallJump(this.getFacing());
 					this.setWalking(true);
 				}
-
-				this.setCurrentPlateform(false);
-				this.setVelocity(this.velocity.initial);
 			}
 		}
 	}
@@ -204,20 +427,19 @@ class Entity extends Handler {
 	}
 
 	walk(walking, side = false) {
-		if(this.is('Player')) {
+		if(this.is('Player', 'BadGuy')) {
 			this.keydown[side] = walking;
 
 			var opposite = side === 'left' ? 'right' : 'left';
 
 			if(walking) {
+				this.attacking = false;
 				this.running();
-			// Si appui des touches directionnelles constant
-			// On vérifie si une touche est toujours appuyée
 			}
 			else {
 				this.standing();
 
-				if((side === "left" && this.keydown.right) || (side === "right" && this.keydown.left)) {
+				if(this.is("Player") && ((side === "left" && this.keydown.right) || (side === "right" && this.keydown.left))) {
 					side = opposite;
 					walking = true;
 				}
@@ -237,10 +459,10 @@ class Entity extends Handler {
 			if(walking && this.hasWallJump() && this.speed < this.initialSpeed && side === this.hasWallJump()) {
 				this.setSpeed(Math.abs(this.speed));
 			}
-		}
 
-		this.setFacing(side);
-		this.setWalking(walking);
+			this.setFacing(side);
+			this.setWalking(walking);
+		}
 	}
 
 	// Helpers
@@ -252,7 +474,7 @@ class Entity extends Handler {
 	hasWallJump() {
 		return this.wallJump;
 	}
-	isWallCLimbing(side) {
+	isWallClimbing(side) {
 		return this.getColision(side) && this.keydown[side];
 	}
 	isOnGround() {
@@ -264,27 +486,35 @@ class Entity extends Handler {
 			this.setSpeed(this.speed + this.speedScaleAfterWallJump);
 		}
 
+		this.isFalling();
+
 		if(this.walking) {
-			this.setSiblingsPlateforms();
-			this.isFalling();
-
-			if(this.is('Player') && this.isCurrentPlayer() && !this.onHitWall()) {
+			if( ! this.onHitWall()) {
 				var vX = this.speed * this.getFacingOperator();
-				var x = this.getScrollX() + vX;
+				var x = this.is("CurrentPlayer") ? this.getX() : this.getScrollX();
 
-				this.recalcAiming();
+if( ! this.is("CurrentPlayer")) console.log(x);
+				x += vX;
 
-				// this.setScrollX(x);
-
-				// Common.screenScrolling = this.getScrollX() - width / 2 > 0;
-				// if(Common.screenScrolling) {
-				// 	Common.setScroll(vX * -1);
-				// }
-				// else {
-				// 	Common.clearScroll();
-					this.setX(x);
-			// 	}
-			// }
+				if(this.is("CurrentPlayer")) {
+					this.setScrollX(x + Common.getScroll());
+					Common.screenScrolling = this.getScrollX() - Common.canvas.width / 2 > 0;
+					if(Common.screenScrolling) {
+						Common.setScroll(vX);
+						x = Common.canvas.width / 2;
+					}
+					else {
+						Common.clearScroll();
+					}
+				}
+				else {
+					this.setScrollX(x + vX);
+				}
+if( ! this.is("CurrentPlayer")) {
+	console.log(this.getScrollX());
+	console.log("==========");
+}
+				this.setX(x);
 			}
 		}
 	}
@@ -292,15 +522,19 @@ class Entity extends Handler {
 	onGround() {
 		if(!this.isOnGround()) {
 			// Walling
-			if(this.is('Player') && (this.isWallCLimbing('left') || this.isWallCLimbing('right'))) this.setVelocity(this.velocity.onWall);
+			if(this.is("Player") && this.isWallClimbing(this.getFacing())) {
+				this.setVelocity(this.velocity.onWall);
+			}
 			// Jumping
-			else this.setVelocity(this.getVelocity() + this.velocity.jump);
+			else this.setVelocity(this.getVelocity() - this.velocity.jump);
 
 			this.setY(this.getY() + this.getVelocity());
-			this.recalcAiming();
+			this.setAim();
 			this.isTouchingGround();
 
-			if(this.getY() > Common.canvas.height) this.setXY(50, Common.canvas.height / 2);
+			// if(this.getY() < -100) this.setXY(50, 50);
+
+			this.stopWalling();
 		}
 	}
 
@@ -315,16 +549,16 @@ class Entity extends Handler {
 		for(var i in this.siblingsPlateforms) {
 			var plateform = this.siblingsPlateforms[i];
 
-			if(this.headTouchingPlateform(plateform)) {
-				this.setY(plateform.getHitBoxY());
+			if(this.hitCeil(plateform)) {
+				this.setY(plateform.getY() - this.getHeight());
 				this.setVelocity(0);
 				break;
 			}
-			else if(this.footTouchingPlateform(plateform)) {
+			else if(this.hitFloor(plateform)) {
 				this.setWallJump(false);
 				this.setCurrentPlateform(plateform);
 
-				this.setY(plateform.getY() - this.getWidth());
+				this.setY(plateform.getHitBoxY());
 				this.setVelocity(0);
 				break;
 			}
@@ -332,19 +566,13 @@ class Entity extends Handler {
 	}
 
 	// Outch la tête ...
-	headTouchingPlateform(plateform) {
-		return this.getVelocity() < 0 &&
-				this.walkingOnPlateform(plateform) &&
-				this.getHitBoxY() > plateform.getHitBoxY() &&
-				this.getY() < plateform.getHitBoxY();
+	hitCeil(plateform) {
+		return this.getVelocity() > 0 && plateform.isCeil();
 	}
 
 	// Plateforme sous nos pieds ?
-	footTouchingPlateform(plateform) {
-		return this.getVelocity() > 0 &&
-				this.walkingOnPlateform(plateform) &&
-				this.getHitBoxY() > plateform.getY() &&
-				this.getY() < plateform.getY();
+	hitFloor(plateform) {
+		return this.getVelocity() < 0 && plateform.isGround();
 	}
 
 	walkingOnPlateform(plateform) {
@@ -357,32 +585,28 @@ class Entity extends Handler {
 			}
 		}
 
-		return this.getHitBoxX() > plateform.getX() && this.getX() < plateform.getHitBoxX();
+		return this.getX() < plateform.getHitBoxX() && this.getHitBoxX() > plateform.getX();
 	}
 
 	onHitWall() {
 		for(var i in this.siblingsPlateforms) {
 			var plateform = this.siblingsPlateforms[i];
 
-			if(i > 0 &&
-				! this.isCurrentPlateform(plateform) &&
-				this.getHitBoxX() > plateform.getX() && 
-				this.getX() < plateform.getHitBoxX() &&
-				this.getHitBoxY() > plateform.getY() &&
-				this.getY() < plateform.getHitBoxY()
-			) {
-				this.setWalking(false);
-
-				// Colision right
-				if(this.getX() < plateform.getX()) {
-					this.setColision('right', plateform);
-					this.setX(plateform.getX() - this.getWidth());
+			if( ! this.isCurrentPlateform(plateform) && plateform.isWall()) {
+				if(this.is("BadGuy")) {
+					if(this.isOnGround()) this.walk(false, this.getFacing());
 				}
-				// Colision left
 				else {
-					this.setColision('left', plateform);
-					this.setX(plateform.getHitBoxX());
+					this.setWalking(false);
 				}
+
+				if(this.is("Player") || ! this.isOnGround()) this.setColision(plateform);
+
+				let setX = plateform.getHitBoxX();
+
+				if(this.getFacing() === "right") setX = plateform.getX() - this.getWidth();
+
+				this.setX(setX);
 
 				return true;
 			}
@@ -391,164 +615,135 @@ class Entity extends Handler {
 		return false;
 	}
 
+	isAttacking() {
+		return this.attacking === true;
+	}
+
 	print() {
-		let xOrigin = this.getX();
-		let yOrigin = this.getY();
-		this.members.forEach((member,i) => {
-			let yFrom = yOrigin;
-			let max1, max2;
+		// if(typeof this.members !== "undefined") 
+		// {
+		// 	let animationFrame = this.getAnimationFrame();
+		// 	let drawMembers = [0,1,2,3,4,5];;
 
-			// Legs
-			if(i % 2 === 0) {
-				max1 = Common.setAngle(member.step1 > 0 ? 0 : -135);
-				max2 = Common.setAngle(member.step2 > 0 ? -45 : -180);
-				yFrom += this.bodyHeight * 0.1;
-			}
-			// Arms
-			else {
-				max1 = Common.setAngle(member.step1 > 0 ? 0 : -135);
-				max2 = Common.setAngle(member.step2 > 0 ? 90 : -45);
-				yFrom -= this.bodyHeight * 0.5;
-			}
+		// 	if(this.facing === 'left') drawMembers = [5,4,2,3,1,0];
 
-			let x = xOrigin + Math.cos(member.x1) * this.memberLength * this.getFacingOperator();
-			let y = yFrom - Math.sin(member.x1) * this.memberLength;
+		// 	drawMembers.forEach(i => {
+		// 		let member = this.members[i];
+				
+		// 		if(Common.updateFrame)
+		// 		{
+		// 			let angles = animationFrame[i];
 
-			join('round');
+		// 			if( ! (angles instanceof Array)) angles = [angles];
 
-			this.drawMember({
-				i: i,
-				yFrom: yFrom,
-				x: x,
-				y: y,
-				angle: member.x2
-			});
+		// 			member.setAngle(...angles);
+		// 		}
+		// 		member.draw();
+		// 	});
 
-			if(i === 1) {
-				// Body
-				begin();
-				move(xOrigin, yOrigin);
-				strokeColor('white');
-				line(xOrigin, yOrigin - this.bodyHeight + this.bodyHeight * 0.5, this.bodyHeight * 0.375 * 1.1, 'round');
-				stroke();
-
-				begin();
-				move(xOrigin, yOrigin);
-				strokeColor('black');
-				line(xOrigin, yOrigin - this.bodyHeight + this.bodyHeight * 0.5, this.bodyHeight * 0.375, 'round');
-				stroke();
-
-				begin();
-				bg('blue');
-				Common.board.arc(xOrigin, yOrigin,  this.bodyHeight * 0.375 / 2, 0, Math.PI);
-				fill();
-
-				begin();
-				bg('blue');
-				rect(xOrigin - this.bodyHeight * 0.375 / 2, yOrigin - this.bodyHeight * 0.15, this.bodyHeight * 0.375, this.bodyHeight * 0.15);
-				fill();
-
-				// Head
-				begin();
-				lineWidth(this.bodyHeight * 0.02);
-				strokeColor('white');
-				bg(this.color);
-				circle(xOrigin, yOrigin - this.bodyHeight + this.bodyHeight * 0.05, this.bodyHeight * 0.26);
-				fill();
-				stroke();
-			}
-
-			if(this.isRunning && ! this.isJumping()) {
-				if(member.step1 < 0 && Common.round(member.x1, 4) < max1) member.step1 *= -1;
-				if(member.step1 > 0 && Common.round(member.x1, 4) > max1) member.step1 *= -1;
-				if(member.step2 < 0 && Common.round(member.x2, 4) < max2) member.step2 *= -1;
-				if(member.step2 > 0 && Common.round(member.x2, 4) > max2) member.step2 *= -1;
-
-				member.x1 += member.step1;
-				member.x2 += member.step2;
-			}
-		});
+		// 	// On passe à l'animation suivante
+		// 	if(Common.updateFrame) {
+		// 		if(this.animationEnabled) {
+		// 			this.animate();
+		// 		}
+		// 	}
+		// }
 
 		if(this.is('Player')) {
+			let currentSpriteName;
+			if(this.isAttacking()) {
+				currentSpriteName = "attacking";
+			}
+			else if(this.isJumping()) {
+				if(this.sprites.jump.over === false) {
+					currentSpriteName = "jump";
+				}
+				else {
+					currentSpriteName = "jumpLoop";
+				}
+			}
+			else if(this.isRunning) {
+				currentSpriteName = "running";
+			}
+			else {
+				currentSpriteName = "standing";
+			}
+
+			if(currentSpriteName !== "jump" && currentSpriteName !== "jumpLoop") this.sprites.jump.over = false;
+
+			if(this.sprites.current !== currentSpriteName) {
+				if(this.sprites.current !== null) this.sprites[this.sprites.current].value = 0;
+				this.currentAnimationFrameIndex = 0;
+			}
+
+			this.sprites.current = currentSpriteName;
+			let sprite = this.sprites[currentSpriteName];
+			let imgSprites = this.facing === "left" ? this.spritesLeft : this.spritesRight;
+			
+			img(imgSprites, this.currentAnimationFrameIndex * this.spriteW, sprite.y, this.spriteW, this.spriteH, this.getX() - (this.width / 2) - 10, this.getY() + this.spriteH - 5, this.spriteW, this.spriteH);
+
+			if(Common.updateFrame) {
+				if(sprite.value === sprite.elapsed) {
+					sprite.value = 0;
+					this.animate();
+					if(this.currentAnimationFrameIndex >= sprite.count) {
+						if(currentSpriteName === "attacking") {
+							this.attacking = false;
+						}
+						else if(currentSpriteName === "jump" && sprite.over === false) {
+							sprite.over = true;
+						}
+						this.currentAnimationFrameIndex = 0;
+					}
+				}
+				sprite.value++;
+			}
+
 			font(15, 'Comic Sans MS');
 			bg('black');
 			align('center');
-			text(this.name, this.getX() + this.getWidth() / 2, this.getY() - 10);
+			text(this.name, this.getX() + this.getWidth() / 2, this.getHitBoxY() + 10);
 		}
 	}
 
 	standing() {
+		if( ! this.isRunning) return;
 		this.isRunning = false;
-		this.setMembersAngles([
-			[-90, -90],
-			[-90, -90],
-			[-90, -90],
-			[-90, -90]
-		]);
+		// this.sendSocket({ action: "standing" });
 	}
 
 	running() {
 		if(this.isRunning) return;
-
 		this.isRunning = true;
-		this.setMembersAngles([
-			[-45, -135],
-			[-90, 0],
-			[-90, -90],
-			[-45, 45]
-		]);
+		// this.sendSocket({ action: "running" });
 	}
 
-	setMembersAngles(angles) {
-		let speedrun = 0.03;
-		this.members = [];
-
-		angles.forEach((angle,i) => {
-			let multiply = i === 0 || i === 3 ? 1 : -1;
-
-			this.members.push({
-				x1: Common.setAngle(angle[0]),
-				x2: Common.setAngle(angle[1]),
-				step1: speedrun * multiply,
-				step2: speedrun * multiply
-			});
-		});
+	attack() {
+		this.attacking = true;
 	}
 
-	drawMember(data) {
-		let thickness;
-		let color = this.color;
-
-		// Legs
-		if(data.i % 2 === 0) {
-			thickness = this.bodyHeight * 0.3;
-			color = this.is('BadGuy') ? 'darkgreen' : 'blue';
+	stopWalling() {
+		if( ! this.isOnGround()) {
+			let plateform = this.getColision();
+			if(plateform && (this.getY() > plateform.getHitBoxY() || this.getHitBoxY() < plateform.getY())) {
+				this.removeColision();
+				if(this.is("BadGuy")) this.walk(true, this.getFacing());
+			}
 		}
-		else {
-			thickness = this.bodyHeight * 0.23;
-		}
-
-		begin();
-		move(this.xOrigin, data.yFrom);
-		strokeColor('white');
-		line(data.x, data.y, thickness * 1.1, 'round');
-		line(data.x + Math.cos(data.angle) * this.memberLength * this.getFacingOperator(), data.y - Math.sin(data.angle) * this.memberLength, thickness * 1.1, 'round');
-		stroke();
-
-		begin();
-		move(this.xOrigin, data.yFrom);
-		strokeColor(color);
-		line(data.x, data.y, thickness, 'round');
-		line(data.x + Math.cos(data.angle) * this.memberLength * this.getFacingOperator(), data.y - Math.sin(data.angle) * this.memberLength, thickness, 'round');
-		stroke();
 	}
 
 	onDraw() {
+		if(Common.updateFrame) {
+			// Appel du pathIA en premier pour définir les plateformes trop proches
+			if(this.is("BadGuy")) this.pathIA();
+			this.setSiblingsPlateforms();
+			this.isWalking();
+			this.onGround();
+		}
+
+		if(this.isArmed()) this.getWeapon().onDraw();
+
 		super.draw();
-		
-		this.setSiblingsPlateforms();
-		this.isWalking();
-		this.onGround();
 		this.print();
 	}
 }

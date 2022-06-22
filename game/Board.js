@@ -8,15 +8,17 @@ function clear() {
 function line(x,y,w = 0,cap = '') {
 	if(w > 0) lineWidth(w);
 	if(cap !== '') lineCap(cap);
-	Common.board.lineTo(x,y);
+	Common.board.lineTo(x,Common.canvas.height - y);
 }
 function circle(x,y,r) {
-	Common.board.arc(x,y,r,0,Math.PI * 2);
+	Common.board.arc(x,Common.canvas.height - y,r,0,Math.PI * 2);
 }
 function rect(x,y,w,h) {
-	Common.board.fillRect(x, y, w, h);
+	Common.board.fillRect(x, Common.canvas.height - y, w, -h);
 }
 function img(...args) {
+	let argNumber = args.length === 9 ? 6 : 2;
+	args[argNumber] = Common.canvas.height - args[argNumber];
 	Common.board.drawImage(...args);
 }
 /* FILL COLOR */
@@ -27,8 +29,9 @@ function strokeColor(color) {
 	Common.board.strokeStyle = color;
 }
 /* TEXT */
-function font(size, family) {
-	Common.board.font = size + "px " + family;
+function font(size, family, style = '') {
+	if(style !== '') style += ' ';
+	Common.board.font = style + size + "px " + family;
 }
 function align(align) {
 	Common.board.textAlign = align;
@@ -38,7 +41,7 @@ function join(join) {
 	Common.board.lineJoin = join;
 }
 function move(x,y) {
-	Common.board.moveTo(x,y);
+	Common.board.moveTo(x,Common.canvas.height - y);
 }
 function lineWidth(w) {
 	Common.board.lineWidth = w;
@@ -48,7 +51,7 @@ function lineCap(cap) {
 }
 /* DRAW */
 function text(string, x, y) {
-	Common.board.fillText(string, x, y);
+	Common.board.fillText(string, x, Common.canvas.height - y);
 }
 function stroke() {
 	Common.board.stroke();
