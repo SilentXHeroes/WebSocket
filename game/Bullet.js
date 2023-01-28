@@ -6,7 +6,7 @@ class Bullet extends Handler {
 		speed *= this.getFacingOperator();
 		let handsPos = shooter.getHandsPos();
 		
-		this.setScrollX(handsPos.x);
+		// this.setScrollX(handsPos.x);
 		this.setXY(handsPos.x, handsPos.y);
 		this.width = 5;
 		this.height = 5;
@@ -25,12 +25,14 @@ class Bullet extends Handler {
 	onHit() {
 		let element = this.collidesWith("Plateform", "BadGuy", "Player");
 		if(element) {
+			// On évite de se tirer sur soi-même
 			if(this.shooter.getUniqueID() === element.getUniqueID()) return false;
-			
+			// La cible est morte
+			if(element.is("Player", "BadGuy") && element.isDead()) return false;
+
 			if(
-				(element.is("Player") && this.shooter.is("Player")) ||
-				(element.is("Player") && this.shooter.is("BadGuy")) ||
-			   	(element.is("BadGuy") && this.shooter.is("Player"))
+				(this.shooter.is("BadGuy") && element.is("Player")) ||
+			   	(this.shooter.is("Player") && (element.is("BadGuy") || element.is("Player")))
 			){
 				element.injured(this.dommage);
 			}
@@ -66,7 +68,6 @@ class Bullet extends Handler {
 			this.destroy();
 			return;
 		}
-		// this.drawHitBox();
 		
 		this.setX(this.x + this.aiming.steps.x * this.speed);
 		this.setY(this.getY() + this.aiming.steps.y * this.speed);

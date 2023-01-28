@@ -2,47 +2,20 @@ class Handler {
 
 	constructor() {
 		this.setUniqueID();
+		this.nextSocketIgnored = false;
 		Common.addElement(this);
-
-		let thos = this;
-		this.Hitbox = {
-			topLeft: {
-				x: function() {
-					return thos.hitbox[0][0];
-				},
-				y: function() {
-					return thos.hitbox[0][1];
-				}
-			},
-			topRight: {
-				x: function() {
-					return thos.hitbox[3][0];
-				},
-				y: function() {
-					return thos.hitbox[3][1];
-				}
-			},
-			bottomLeft: {
-				x: function() {
-					return thos.hitbox[1][0];
-				},
-				y: function() {
-					return thos.hitbox[1][1];
-				}
-			},
-			bottomRight: {
-				x: function() {
-					return thos.hitbox[2][0];
-				},
-				y: function() {
-					return thos.hitbox[2][1];
-				}
-			}
-		};
 	}
 
 	is(...constructors) {
-		if(constructors.includes("CurrentPlayer") && this.is("Player") && this.isCurrentPlayer()) return true;
+		if((constructors.includes("CurrentPlayer") || constructors.includes("AnotherPlayer")) && this.is("Player")) {
+			if(
+				(this.isCurrentPlayer() && constructors.includes("CurrentPlayer")) ||
+				(this.isCurrentPlayer() === false && constructors.includes("AnotherPlayer"))
+			)
+			{
+				return true;
+			}
+		}
 		return constructors.includes(this.constructor.name);
 	}
 	setUniqueID(id = null) {
@@ -65,9 +38,9 @@ class Handler {
 	getXOrigin() {
 		return this.xOrigin;
 	}
-	setScrollX(scrollX) {
-		this.scrollX = scrollX;
-	}
+	// setScrollX(scrollX) {
+	// 	this.scrollX = scrollX;
+	// }
 	getScrollX() {
 		let val = this.scrollX;
 		return isNaN(val) ? 0 : val;
@@ -82,13 +55,22 @@ class Handler {
 
 		this.x = x;
 		this.y = y;
+
+		if(this.is("CurrentPlayer")) {
+			Common.updateScroll();
+		}
+
+		if(this.getHitBoxY() < 0) {
+			this.standing();
+			this.setXY(50, 100);
+		}
 	}
 	setPosition(coords) {
 		this.setXY(coords.x, coords.y);
 	}
 
 	getX() {
-		return this.x - (this.is("CurrentPlayer", "Bullet") ? 0 : Common.getScroll());
+		return this.x;
 	}
 	getY() {
 		return this.y;
@@ -100,10 +82,23 @@ class Handler {
 		return this.getY() + this.getHeight();
 	}
 	getPosition() {
-		return { x: this.getScrollX(), y: this.getY() };
+		// return { x: this.getScrollX(), y: this.getY() };
+		return { x: this.getX(), y: this.getY() };
 	}
 	updateHitBox() {
-		this.hitbox = [];
+		this.hitbox = {
+			// Valeurs simple
+			left: 0,
+			right: 0,
+			top: 0,
+			bottom: 0,
+
+			// Coordonnées
+			topLeft: { X: 0, Y: 0 },
+			topRight: { X: 0, Y: 0 },
+			bottomLeft: { X: 0, Y: 0 },
+			bottomRight: { X: 0, Y: 0 },
+		};
 
 		//   Visualisation de la hitbox:
 		// 
@@ -114,55 +109,80 @@ class Handler {
 		//	(1)-------(2)
 
 		if(this.is('Bullet')) {
-			this.hitbox[0] = [this.getX() - this.width, this.getY() - this.height];
-			this.hitbox[1] = [this.getX() - this.width, this.getY() + this.height];
-			this.hitbox[2] = [this.getX() + this.width, this.getY() + this.height];
-			this.hitbox[3] = [this.getX() + this.width, this.getY() - this.height];
+			this.hitbox.topLeft = 		{ X: this.getX() - this.width, Y: this.getY() - this.height };
+			this.hitbox.bottomLeft = 	{ X: this.getX() - this.width, Y: this.getY() + this.height };
+			this.hitbox.bottomRight = 	{ X: this.getX() + this.width, Y: this.getY() + this.height };
+			this.hitbox.topRight = 		{ X: this.getX() + this.width, Y: this.getY() - this.height };
 		}
 		else {
-			this.hitbox[0] = [this.getX(), this.getHitBoxY()];
-			this.hitbox[1] = [this.getX(), this.getY()];
-			this.hitbox[2] = [this.getX() + this.width, this.getY()];
-			this.hitbox[3] = [this.getX() + this.width, this.getHitBoxY()];
+			this.hitbox.topLeft = 		{ X: this.getX(), 				Y: this.getHitBoxY() };
+			this.hitbox.bottomLeft = 	{ X: this.getX(), 				Y: this.getY() };
+			this.hitbox.bottomRight = 	{ X: this.getX() + this.width, 	Y: this.getY() };
+			this.hitbox.topRight = 		{ X: this.getX() + this.width, 	Y: this.getHitBoxY() };
 		}
 
 		if( ! this.is("Plateform")) {
-			let addMoreHitbox = 5;
+			let increaseHitbox = 5;
 
-			this.hitbox[0][0] -= addMoreHitbox;
-			this.hitbox[1][0] -= addMoreHitbox;
-			this.hitbox[2][0] += addMoreHitbox;
-			this.hitbox[3][0] += addMoreHitbox;
-
-			if( ! this.is("Player")) {
-				this.hitbox[0][1] += addMoreHitbox;
-				this.hitbox[1][1] -= addMoreHitbox;
-				this.hitbox[2][1] -= addMoreHitbox;
-				this.hitbox[3][1] += addMoreHitbox;
+			let increaseWeaponHitboxX = 0;
+			if(this.isAttacking() && this.getFacing() === "left" && this.sprites.currentSpriteIndex > 7) {
+				increaseWeaponHitboxX = 30;
 			}
+
+			this.hitbox.topLeft.X -= increaseHitbox + increaseWeaponHitboxX;
+			this.hitbox.bottomLeft.X -= increaseHitbox + increaseWeaponHitboxX;
+
+			increaseWeaponHitboxX = 0;
+			if(this.isAttacking() && this.getFacing() === "right" && this.sprites.currentSpriteIndex > 7) {
+				increaseWeaponHitboxX = 30;
+			}
+
+			this.hitbox.bottomRight.X += increaseHitbox + increaseWeaponHitboxX;
+			this.hitbox.topRight.X += increaseHitbox + increaseWeaponHitboxX;
+
+			let increaseWeaponHitboxY = 0;
+			if(this.is("Player")) {
+				increaseHitbox = 0;
+				if(this.isAttacking() && this.sprites.currentSpriteIndex > 7) {
+					increaseWeaponHitboxY = 5;
+				}
+			}
+			else {
+				increaseHitbox = 5;
+			}
+
+			this.hitbox.topLeft.Y += increaseHitbox + increaseWeaponHitboxY;
+			// this.hitbox.bottomLeft.Y -= increaseHitbox;
+			// this.hitbox.bottomRight.Y -= increaseHitbox;
+			this.hitbox.topRight.Y += increaseHitbox + increaseWeaponHitboxY;
 		}
+
+		this.hitbox.left = this.hitbox.topLeft.X;
+		this.hitbox.top = this.hitbox.topLeft.Y;
+		this.hitbox.right = this.hitbox.bottomRight.X;
+		this.hitbox.bottom = this.hitbox.bottomRight.Y;
 
 		return this.hitbox;
 	}
 	drawHitBox() {
-		this.updateHitBox();
+		if(this.hitbox) {
+			begin();
+			bg('rgba(255,0,0,0.3)');
+			move(this.hitbox.topLeft.X, this.hitbox.topLeft.Y);
+			line(this.hitbox.bottomLeft.X, this.hitbox.bottomLeft.Y);
+			line(this.hitbox.bottomRight.X, this.hitbox.bottomRight.Y);
+			line(this.hitbox.topRight.X, this.hitbox.topRight.Y);
+			fill();
 
-		begin();
-		bg('red');
-		move(this.hitbox[0][0], this.hitbox[0][1]);
-		line(this.hitbox[1][0], this.hitbox[1][1]);
-		line(this.hitbox[2][0], this.hitbox[2][1]);
-		line(this.hitbox[3][0], this.hitbox[3][1]);
-		fill();
-
-		if(this.is("Plateform")) {
-			let shift = this.getWidth() < 50 ? 1 : 0;
-			bg("black");
-			font(10, "Sans-Serif", "bold");
-			text(this.hitbox[0][0] + ';' + this.hitbox[0][1], this.hitbox[0][0] - shift * 40, this.hitbox[0][1] + 5);
-			text(this.hitbox[1][0] + ';' + this.hitbox[1][1], this.hitbox[1][0] - shift * 40, this.hitbox[1][1] - 10);
-			text(this.hitbox[2][0] + ';' + this.hitbox[2][1], this.hitbox[2][0] + shift, this.hitbox[2][1] - 10);
-			text(this.hitbox[3][0] + ';' + this.hitbox[3][1], this.hitbox[3][0] + shift, this.hitbox[3][1] + 5);
+			if(this.is("Plateform")) {
+				let shift = this.getWidth() < 50 ? 1 : 0;
+				bg("black");
+				font(10, "Sans-Serif", "bold");
+				text(this.hitbox.topLeft.X + ';' + this.hitbox.topLeft.Y, this.hitbox.topLeft.X - shift * 40, this.hitbox.topLeft.Y + 5);
+				text(this.hitbox.bottomLeft.X + ';' + this.hitbox.bottomLeft.Y, this.hitbox.bottomLeft.X - shift * 40, this.hitbox.bottomLeft.Y - 10);
+				text(this.hitbox.bottomRight.X + ';' + this.hitbox.bottomRight.Y, this.hitbox.bottomRight.X + shift, this.hitbox.bottomRight.Y - 10);
+				text(this.hitbox.topRight.X + ';' + this.hitbox.topRight.Y, this.hitbox.topRight.X + shift, this.hitbox.topRight.Y + 5);
+			}
 		}
 	}
 	getFacing() {
@@ -177,34 +197,41 @@ class Handler {
 	getFacingOperator() {  
 		return this.facing === 'left' ? -1 : 1;
 	}
+	getOppositeFacingOperator() {  
+		return this.facing === 'left' ? 1 : -1;
+	}
 	getRandomPosition() {
 		let plateforms = Common.getElementsOfConstructor('Plateform');
 		let rand = parseInt(Common.rand(0, plateforms.length));
 		let plateform = plateforms[rand];
 		return {
 			x: Common.rand(plateform.getX(), plateform.getHitBoxX()),
-			y: plateform.getHitBoxY() + 10
+			y: plateform.getHitBoxY() + 50
 		};
 	}
 	getSiblingsElements(...constructors) {
 		let elements = Common.getElements();
 		if(constructors.length > 0) elements = elements.filter(element => element.is(...constructors));
 		return elements.filter(element => {
-			return  (this.getX() < element.getX() && this.getHitBoxX() > element.getX()) ||
-				// Hitbox gauche dans l'élément
-				(this.getX() > element.getX() && this.getX() < element.getHitBoxX()) ||
 				// Hitbox droite dans l'élément
+			return (this.getX() < element.getX() && this.getHitBoxX() > element.getX()) ||
+				// Touche le coté gauche de l'élément
+				(this.getX() > element.getX() && this.getX() < element.getHitBoxX()) ||
+				// Touche le coté droit de l'élément
 				(this.getHitBoxX() > element.getHitBoxX() && this.getX() < element.getHitBoxX()) ||
-				// // Proche de la gauche
+				// Proche de la gauche
 				(this.getHitBoxX() < element.getX() && this.getHitBoxX() + 50 > element.getX()) ||
 				// Proche de la droite
 				(this.getX() > element.getHitBoxX() && this.getX() - 50 < element.getHitBoxX())
-		});
+		})
+		// .map(element => Object.assign(Object.create(Object.getPrototypeOf(element)), element));
 	}
 	drawPos() {
-		var txt = parseInt(this.getScrollX()) + ' ; ' + parseInt(this.getY());
+		// var txt = Math.floor(this.getScrollX()) + ' ; ' + Math.floor(this.getY());
+		var txt = Math.floor(this.getX()) + ' ; ' + Math.floor(this.getY());
 		bg("black");
 		font(12, "Sans-Serif");
+		align("center");
 		text(txt, this.getX() + this.getWidth() / 2, this.getHitBoxY() + 10);
 	}
 
@@ -217,12 +244,32 @@ class Handler {
 	getWidth() {
 		return this.width;
 	}
+	getHalfWidth() {
+		return this.width / 2;
+	}
 	getHeight() {
 		return this.height;
 	}
 
 	isThis(element) {
 		return element.getUniqueID() === this.getUniqueID();
+	}
+
+	isMouseOver() {
+		// this.updateHitBox();
+
+		//	(0)-------(3)
+		//   |		   |
+		//	 |		   |
+		//	 |		   |
+		//	(1)-------(2)
+
+			   // X
+		return Common.mouse.x >= this.hitbox.topLeft.X &&
+			   Common.mouse.x <= this.hitbox.topRight.X &&
+			   // Y
+			   Common.mouse.y <= this.hitbox.topLeft.Y &&
+			   Common.mouse.y >= this.hitbox.bottomLeft.Y;
 	}
 
 	collidesWith(...list) {
@@ -236,16 +283,19 @@ class Handler {
 		else if(list[0] === "CurrentPlayer") {
 			elements = [Common.current];
 		}
-		// Par identifiant
-		else if( ! ["Player", "BadGuy", "Plateform", "Weapon", "Bullet", "CurrentPlayer", "object"].includes(list[0])) {
-			elements = [Common.getElementById(list[0])];
+		else if(list[0] === "AnotherPlayer") {
+			elements = this.getOtherPlayers();
+		}
+		// Par identifiant unique
+		else if(Common.isUniqueID(list[0])) {
+			let element = Common.getElementById(list[0]);
+			if(typeof element === "undefined") return false;
+			elements = [ element ];
 		}
 		// Tous les objets d'une instance
 		else {
 			elements = Common.getElementsOfConstructor(...list);
 		}
-
-		this.updateHitBox();
 
 		let selfCalled = typeof list[list.length - 1] === "boolean";
 		if(selfCalled) list.pop();
@@ -258,15 +308,18 @@ class Handler {
 
 			element.updateHitBox();
 
-			if( ! this.is("Bullet")) {
-				if(selfCalled === false) {
-					if(element.collidesWith(this, true)) collides = element;
-				}
-				if(collides) break;
+			if( ! this.is("Bullet") &&
+				selfCalled === false && 
+				element.collidesWith(this, true)
+			) {
+				collides = element;
+				break;
 			}
 
 			// On vérifie si un des coins de la hitbox est compris dans ceux de l'élément
-			this.hitbox.forEach(hb => {
+			for(let j in this.hitbox) {
+				let hb = this.hitbox[j];
+
 				//	(0)-------(3)
 				//   |		   |
 				//	 |		   |
@@ -274,16 +327,16 @@ class Handler {
 				//	(1)-------(2)
 				if(
 					// X
-					hb[0] >= element.hitbox[0][0] &&
-					hb[0] <= element.hitbox[3][0] &&
+					hb.X >= element.hitbox.topLeft.X &&
+					hb.X <= element.hitbox.topRight.X &&
 					// Y
-					hb[1] <= element.hitbox[0][1] &&
-					hb[1] >= element.hitbox[1][1]
+					hb.Y <= element.hitbox.topLeft.Y &&
+					hb.Y >= element.hitbox.bottomLeft.Y
 				) {
 					collides = element;
-					return false;
+					break;
 				}
-			});
+			}
 
 			if(collides) break;
 		}
@@ -293,18 +346,40 @@ class Handler {
 		return collides;
 	}
 
-	sendSocket(data) {
+	getOtherPlayers() {
+		return Common.getElementsOfConstructor("Player").filter(player => {
+			return player.getUniqueID() !== this.getUniqueID();
+		});
+	}
+
+	ignoreNextSocket() {
+		this.nextSocketIgnored = true;
+	}
+
+	sendSocket(data, force = false) {
+		if(this.nextSocketIgnored === true) {
+			this.nextSocketIgnored = false;
+			return;
+		}
 		if(
-			(this.is("CurrentPlayer")) ||
-			(this.is("Weapon") && this.carrier.isCurrentPlayer())
+			this.is("CurrentPlayer") ||
+			(this.is("Weapon") && this.carrier.isCurrentPlayer()) ||
+			force === true
 		) {
-			if(this.is("Player")) data.position = this.getPosition();
+			if(this.is("Player")) {
+				data.position = this.getPosition();
+				data.health = this.getHealth();
+				data.vitality = this.vitality;
+			}
 			Common.socket.emit("player-update", data);
 		}
 	}
 
 	draw() {
-		this.drawHitBox();
+		if(Common.updateFrame) {
+			this.updateHitBox();
+		}
+		// this.drawHitBox();
 		// this.drawPos();
 	}
 }

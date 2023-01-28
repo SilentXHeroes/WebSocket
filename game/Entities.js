@@ -9,7 +9,7 @@ class Player extends Entity {
 		if(typeof player.speed !== 'undefined') speed = player.speed;
 		if(typeof player.jumpH !== 'undefined') jumpH = player.jumpH;
 
-		this.id = player.id;
+		this.socketID = player.socketID;
 		this.name = player.name;
 		this.spriteW = 1851 / 18;
 		this.spriteH = 630 / 9;
@@ -22,35 +22,35 @@ class Player extends Entity {
 		this.jumpingFromKeyDown = false;
 		this.onMove = false;
 		this.aiming = false;
-		this.health = 100;
-		this.vitality = 100;
+		this.health = typeof player.health !== "undefined" ? player.health : 100;
+		this.vitality = typeof player.vitality !== "undefined" ? player.vitality : 100;
 		this.color = 'burlywood';
 
-		if(typeof player.posX === 'undefined') player.posX = Common.calcX(50);
-		if(typeof player.posY === 'undefined') player.posY = Common.calcY(80);
+		if(typeof player.position === "undefined") {
+			player.position = { x: 420, y: 435 };
+		}
 
 		this.spritesRight = Images.sprites.right;
 		this.spritesLeft = Images.sprites.left;
-		this.sprites = {
-			attacking: { y: 0, count: 12, elapsed: 2, value: 0 },
-			dying: { y: this.spriteH, count: 15, elapsed: 4, value: 0 },
-			hurt: { y: this.spriteH * 2, count: 12, elapsed: 5, value: 0 },
-			standing: { y: this.spriteH * 3, count: 12, elapsed: 5, value: 0 },
-			// "Idle Blink": { y: this.spriteH * 4, count: 12 },
-			jumpLoop: { y: this.spriteH * 5, count: 6, elapsed: 5, value: 0 },
-			jump: { y: this.spriteH * 6, count: 6, elapsed: 5, value: 0, over: false },
+		this.sprites.poses = {
+			attacking: { y: 0, count: 12, step: 0, hit: false, stepsToIgnoreBetweenSprites: 2 },
+			dying: { y: this.spriteH, count: 15, step: 0, over: false, stepsToIgnoreBetweenSprites: 4 },
+			hurt: { y: this.spriteH * 2, count: 12, step: 0, stepsToIgnoreBetweenSprites: 5 },
+			// standing: { y: this.spriteH * 3, count: 12, step: 0, stepsToIgnoreBetweenSprites: 5 },
+			standing: { y: this.spriteH * 4, count: 12, step: 0, stepsToIgnoreBetweenSprites: 5 }, // blink eyes
+			jumpLoop: { y: this.spriteH * 5, count: 6, step: 0, stepsToIgnoreBetweenSprites: 5 },
+			jump: { y: this.spriteH * 6, count: 6, step: 0, over: false, stepsToIgnoreBetweenSprites: 5 },
 			// "Taunt": { y: this.spriteH * 7, count: 18 },
-			running: { y: this.spriteH * 8, count: 18, elapsed: 3, value: 0 },
-			current: null
+			running: { y: this.spriteH * 8, count: 18, step: 0, stepsToIgnoreBetweenSprites: 3 }
 		};
 
-		this.setXY(player.posX, player.posY);
+		this.setPosition(player.position);
 		this.onDraw();
 		this.setEvents();
 	}
 
 	getId() {
-		return this.id;
+		return this.socketID;
 	}
 
 	isCurrentPlayer() {
@@ -96,13 +96,18 @@ class Player extends Entity {
 		if(e.type === "click") {
 			this.setWalking(false);
 			this.attack();
-		 	return;
 		}
-		if(e.keyCode === 32) this.weapon.setFire(e.type === 'keydown');
-		else if(e.keyCode === 38 || e.keyCode === 90) this.jump(e.type === 'keydown');
-		else if(e.keyCode === 37 || e.keyCode === 81 || e.keyCode === 39 || e.keyCode === 68) this.walk(e.type === 'keydown', e.keyCode === 37 || e.keyCode === 81 ? "left" : "right");
+		if(e.keyCode === 32) {
+			this.weapon.setFire(e.type === 'keydown');
+		}
+		else if(e.keyCode === 38 || e.keyCode === 90) {
+			this.jump(e.type === 'keydown');
+		}
+		else if(e.keyCode === 37 || e.keyCode === 81 || e.keyCode === 39 || e.keyCode === 68) {
+			this.walk(e.type === 'keydown', e.keyCode === 37 || e.keyCode === 81 ? "left" : "right");
+		}
 
-		let enableSocket = this.lastEventSend !== e.keyCode + e.type;
+		let enableSocket = e.type === "click" || this.lastEventSend !== (e.keyCode + e.type);
 		this.lastEventSend = e.keyCode + e.type;
 		if(enableSocket) this.sendSocket({ action: "player-event", position: this.getPosition(), keyCode: e.keyCode, type: e.type });
 	}
@@ -120,6 +125,27 @@ class BadGuy extends Entity {
 		this.health = health;
 		this.vitality = health;
 		this.color = 'saddlebrown';
+		this.name = "MECHANT";
+		this.spriteW = 1851 / 18;
+		this.spriteH = 630 / 9;
+		// this.speed = speed;
+		// this.initialSpeed = speed;
+		// this.velocity = jumpH * -1;
+		this.height = this.spriteH - 10;
+		this.width = (this.spriteW / 2) - 10;
+		this.spritesRight = Images.sprites.right;
+		this.spritesLeft = Images.sprites.left;
+		this.sprites.poses = {
+			attacking: { y: 0, count: 12, step: 0, stepsToIgnoreBetweenSprites: 2 },
+			dying: { y: this.spriteH, count: 15, step: 0, over: false, stepsToIgnoreBetweenSprites: 4 },
+			hurt: { y: this.spriteH * 2, count: 12, step: 0, stepsToIgnoreBetweenSprites: 5 },
+			standing: { y: this.spriteH * 3, count: 12, step: 0, stepsToIgnoreBetweenSprites: 5 },
+			// standing: { y: this.spriteH * 4, count: 12, step: 0, stepsToIgnoreBetweenSprites: 5 }, // blink eyes
+			jumpLoop: { y: this.spriteH * 5, count: 6, step: 0, stepsToIgnoreBetweenSprites: 5 },
+			jump: { y: this.spriteH * 6, count: 6, step: 0, over: false, stepsToIgnoreBetweenSprites: 5 },
+			// "Taunt": { y: this.spriteH * 7, count: 18 },
+			running: { y: this.spriteH * 8, count: 18, step: 0, stepsToIgnoreBetweenSprites: 3 }
+		};
 
 		let position = this.getRandomPosition();
 
@@ -208,7 +234,8 @@ class BadGuy extends Entity {
 
 	onDraw() {
 		super.onDraw();
-		this.printVitality();
+
+		if(this.getHealth() < this.vitality && this.getHealth() > 0) this.printVitality();
 
 		if(Common.updateFrame) {
 			this.checkPurpose();

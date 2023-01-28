@@ -51,14 +51,20 @@ io.on('connection', (socket, request) => {
 			},
 			{
 				id: newUniqueID(),
+				shape: "rect",
+				x: "33%",
+				y: "30%",
+				width: "5%",
+				height: "5%"
+			},
+			{
+				id: newUniqueID(),
 				shape: 'rect', 
 				x: "60%",
 				y: "20%",
 				width: "7.5%", 
 				height: "3%"
 			},
-			// this.newElement('Plateform', 'rect', this.canvas.width / 2 - 100, 135, 150, 25);
-			// this.newElement('Plateform', 'rect', this.canvas.width / 2 + 100, 100, 75, 15);
 
 			// Walls
 			{
@@ -76,14 +82,78 @@ io.on('connection', (socket, request) => {
 				y: "42%",
 				width: "3.5%", 
 				height: "20%"
-			}
-			// this.newElement('Plateform', 'rect', this.canvas.width * 90 / 100, 135, 35, 100);
-			// this.newElement('Plateform', 'rect', this.canvas.width * 75 / 100, 210, 35, 100);
+			},
+			{
+				id: newUniqueID(),
+				shape: "rect",
+				x: "82.5%",
+				y: "10%",
+				width: 25,
+				height: 200
+			},
+			{
+				id: newUniqueID(),
+				shape: "dots",
+				dots: [
+				    [ 100, 200 ],
+					{
+						bezier: true,
+						dots: [
+						    [ 225, 200 ],
+						    [ 225, 350 ],
+						    [ 350, 350 ]
+						]
+			    	},
+				    [ 350, 190 ],
+				    [ 100, 190 ]
+				]
+			},
+			{
+				id: newUniqueID(),
+				shape: "dots",
+				dots: [
+				    [ 900, 400 ],
+					{
+						bezier: true,
+						dots: [
+						    [ 975, 400 ],
+						    [ 975, 300 ],
+						    [ 1050, 300 ]
+						]
+			    	},
+				    [ 1050, 280 ],
+				    [ 900, 280 ]
+				]
+			},
+			{
+				id: newUniqueID(),
+				shape: "rect",
+				x: 400,
+				y: 400,
+				width: 100,
+				height: 35
+			},
+			{
+				id: newUniqueID(),
+				shape: "dots",
+				dots: [
+				    [ 500, 435 ],
+					{
+						bezier: true,
+						dots: [
+						    [ 625, 435 ],
+						    [ 625, 585 ],
+						    [ 750, 585 ]
+						]
+			    	},
+				    [ 750, 400 ],
+				    [ 500, 400 ]
+				]
+			},
 		];
 	}
-
-	socket.emit("build", { action: "build", data: plateforms });
-	socket.emit("show-players", players);
+console.log(players);
+	socket.emit("build", { action: "build", plateforms: plateforms, players: players });
 
 	socket.on("player-connect", player => {
 		socket.broadcast.emit("player-connect", player);
@@ -93,11 +163,13 @@ io.on('connection', (socket, request) => {
 	});
 
 	socket.on("player-update", data => {
-		if(typeof players[socket.id] !== "undefined") {
-			// players[socket.id].posX = data.x;
-			// players[socket.id].posY = data.y;
-			// players[socket.id].width = data.w;
-			// players[socket.id].height = data.h;
+		let player = players[socket.id];
+		if(typeof player !== "undefined") {
+			player.position = data.position;
+			player.vitality = data.vitality;
+			player.health = data.health;
+			// player.width = data.w;
+			// player.height = data.h;
 
 			data.id = socket.id;
 			console.log(players[socket.id].name + " - "+ data.action.toUpperCase() +": " + JSON.stringify(data));

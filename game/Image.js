@@ -19,24 +19,29 @@ class _Image {
 		// Weapons
 		this.load("weapons.gun", "gun.png");
 
-		// Sprites
+		/* Sprites */
+
+		// Player
 		this.load("sprites.right", "sprites-right.png");
 		this.load("sprites.left", "sprites-left.png");
 
-		// Player
-		this.load("player.frame1.png", "Frame 1.png");
-		this.load("player.frame2.png", "Frame 2.png");
-		this.load("player.frame3.png", "Frame 3.png");
-		this.load("player.frame4.png", "Frame 4.png");
-		this.load("player.frame5.png", "Frame 5.png");
-		this.load("player.frame6.png", "Frame 6.png");
+		/***********/
 
-		this.load("player.frame1.svg", "Frame 1.svg");
-		this.load("player.frame2.svg", "Frame 2.svg");
-		this.load("player.frame3.svg", "Frame 3.svg");
-		this.load("player.frame4.svg", "Frame 4.svg");
-		this.load("player.frame5.svg", "Frame 5.svg");
-		this.load("player.frame6.svg", "Frame 6.svg");
+
+		// Player
+		// this.load("player.frame1.png", "Frame 1.png");
+		// this.load("player.frame2.png", "Frame 2.png");
+		// this.load("player.frame3.png", "Frame 3.png");
+		// this.load("player.frame4.png", "Frame 4.png");
+		// this.load("player.frame5.png", "Frame 5.png");
+		// this.load("player.frame6.png", "Frame 6.png");
+
+		// this.load("player.frame1.svg", "Frame 1.svg");
+		// this.load("player.frame2.svg", "Frame 2.svg");
+		// this.load("player.frame3.svg", "Frame 3.svg");
+		// this.load("player.frame4.svg", "Frame 4.svg");
+		// this.load("player.frame5.svg", "Frame 5.svg");
+		// this.load("player.frame6.svg", "Frame 6.svg");
 
 		this.countLoad = false;
 	}

@@ -60,7 +60,7 @@
 			const Images = new _Image();
 			const Common = new _Common();
 		</script>
-		<script type="text/javascript" src="Member.js"></script>
+		<!-- <script type="text/javascript" src="Member.js"></script> -->
 		<script type="text/javascript" src="Handler.js"></script>
 		<script type="text/javascript" src="Entity.js"></script>
 		<script type="text/javascript" src="Entities.js"></script>
@@ -78,7 +78,7 @@
 				if(typeof Common.current !== "undefined") return;
 
 				let infos = {
-					id: Common.socket.id, 
+					socketID: Common.socket.id, 
 					name: document.getElementById("player").value,
 					// width: document.getElementById("width").value,
 					// height: document.getElementById("height").value,
@@ -91,56 +91,175 @@
 				Common.socket.emit("player-connect", player);
 			});
 
-			// var sprites = {
-			// 	"Attacking": 12,
-			// 	"Dying": 15,
-			// 	"Hurt": 12,
-			// 	"Idle": 12,
-			// 	"Idle Blink": 12,
-			// 	"Jump Loop": 6,
-			// 	"Jump Start": 6,
-			// 	"Taunt": 18,
-			// 	"Walking": 18
-			// };
-			// var imgW = 720 / 7;
-			// var imgH = 490 / 7;
-			// var canvasImage = document.getElementById("image");
-			// var board = canvasImage.getContext("2d");
-			// var count = 0;
-			// var loaded = 0;
-			// var spriteDirection = "right";
+			var posRadius = 7;
+			var pointToMove = null;
+			var ball = { x: 100, y: 200, speed: 0.01, radius: 20, t: 0 };
+			var isClickDown = false;			
+			var points = [
+			    { x: 100, y: 200 },
+			    { x: 225, y: 200 },
+			    { x: 225, y: 350 },
+			    { x: 350, y: 350 }
+			];
 
-			// canvasImage.width = imgW * 18;
-			// canvasImage.height = imgH * 9;
+			var elementOver = null;
 
-			// for(var i in sprites) {
-			// 	let name = i;
-			// 	count += sprites[i];
+			Common.MouseDown.subscribe(() => {
+				if(elementOver !== null) return;
+				Common.getElementsOfConstructor("Player", "BadGuy").forEach(element => {
+				    if(element.isMouseOver()) {
+				        element.setCurrentPlateform(false);
+				        element.velocity.ignored = true;
+				    	elementOver = element;
+				    }
+				});
+			});
+			Common.MouseMove.subscribe(() => {
+				if(Common.mouse.down === false || elementOver === null) return;
 
-			// 	if(name === "Idle Blink") name = "Idle Blinking";
-			// 	for(let j = 0; j < sprites[i]; j++) {
-			// 		let img = Images.load("extra." + i + "."+ j, "PNG/Minotaur_01/PNG Sequences/" + i + "/Minotaur_01_" + name + "_0" + ( j < 10 ? '0' : '' ) + j + ".png");
-			// 		img.onload = function() {
-			// 			loaded++;
-			// 			if(loaded === count) insertImages();
-			// 		};
-			// 	}
-			// }
+		        elementOver.setSiblingsPlateforms(true);
+		        elementOver.setPosition({
+		            x: Common.mouse.x - (elementOver.getWidth() / 2),
+		            y: Common.mouse.y - (elementOver.getHeight() / 2)
+		        });
+			});
+			Common.MouseUp.subscribe(() => {
+			    if(elementOver !== null) {
+			        elementOver.velocity.ignored = false;
+			        elementOver.isFalling();
+			    	elementOver = null;
+			    }
+			});
 
-			function insertImages() {
-				let x, y = 0;
-				if(spriteDirection === "left") {
-					board.translate(canvasImage.width, 0);
-				    board.scale(-1,1);
+			Common.Draw.subscribe(() => {
+				begin();
+				bg("red");
+				circle(Common.mouse.x, Common.mouse.y, 10);
+				fill();
+				
+				// drawBall();
+			    // checkIfCursorInPoint();
+			    // if(pointToMove) movePoint();
+			    // drawLine();
+			    // //Points will be above everything else
+			    // drawPoints();
+			});
+
+			canvas.addEventListener("mousedown", () => {
+			    isClickDown = true;
+			});
+
+			canvas.addEventListener("mouseup", () => {
+			    //Main on click down. Used for simple detection
+			    isClickDown = false;
+			    //Not moving that point any more
+			    pointToMove = null;
+			});
+
+			function drawBall() {
+				if(Common.animateBall === true) {
+				    let t = ball.t;
+
+				    setBallCoords(t);
+
+				    //Increment t value by speed
+				    ball.t += ball.speed;
+				    if(ball.t > 1) {
+				    	ball.t = 1;
+				    }
 				}
-				for(let i in Images.extra) {
-					x = spriteDirection === "right" ? 0 : canvasImage.width;
-					for(let j in Images.extra[i]) {
-						board.drawImage(Images.extra[i][j], x - (spriteDirection === "left" ? imgW : 0), y, imgW, imgH);
-						x += imgW * (spriteDirection === "right" ? 1 : -1);
-					}
-					y += imgH;
-				}
+
+			    begin();
+			    bg("black");
+			    circle(ball.x, ball.y, ball.radius, 0, Math.PI * 2, false);
+			    fill();
+			}
+
+			function setBallCoords(step) {
+			    let [p0, p1, p2, p3] = points;
+			    let coords = { x: 0, y: 0 };
+			    for(let axe in coords) {
+			    	//Calculate the coefficients based on where the ball currently is in the animation
+			    	let c = 3 * (p1[axe] - p0[axe]);
+			    	let b = 3 * (p2[axe] - p1[axe]) - c;
+			    	let a = p3[axe] - p0[axe] - c - b;
+
+			    	//Calculate new X & Y positions of ball
+			    	coords[axe] = a * Math.pow(step, 3) + b * Math.pow(step, 2) + c * step + p0[axe];
+			    }
+
+			    //We draw the ball to the canvas in the new location
+			    ball.x = coords.x;
+			    ball.y = coords.y;
+			}
+
+			function movePoint() {
+			    if(pointToMove === points[0]){
+			        points[0].x = Common.mouse.x;
+			        points[0].y = Common.mouse.y;
+			        ball.x = Common.mouse.x;
+			        ball.y = Common.mouse.y;
+			        return
+			    }
+			    let pointIndex = points.indexOf(pointToMove);
+			    points[pointIndex].x = Common.mouse.x;
+			    points[pointIndex].y = Common.mouse.y;
+			}
+
+			function drawLine() {
+			    begin();
+			    // lineDash(10);
+			    bg("green");
+			    move(points[0].x, points[0].y);
+			    bezierCurve(points[1].x, points[1].y, points[2].x, points[2].y, points[3].x, points[3].y);
+			    stroke();
+			    // line(points[3].x, points[0].y - 10);
+			    // line(points[0].x, points[0].y - 10);
+			    // fill();
+			}
+
+			//Actually render the points to the canvas
+			function drawPoints() {
+			    points.forEach((point, index) => {
+			    	let prevPoint = points[index - 1];
+
+			        begin();
+			    	bg("red");
+			        circle(point.x, point.y, posRadius, 0, Math.PI * 2, false);
+			        fill();
+
+			        if(typeof prevPoint !== "undefined") {
+			        	begin();
+			        	lineDash(0);
+			        	strokeColor("rgba(0,0,0,.2)");
+			        	move(prevPoint.x, prevPoint.y);
+			        	line(point.x, point.y);
+			        	stroke();
+			        }
+
+			        //Deal with text
+			        font(11, "Arial");
+			    	strokeColor("black");
+			        align("center");
+			        text(`(${point.x}, ${point.y})`, point.x, point.y - 30);
+			    });
+			}
+
+			//Returns true if cursor is inside of point
+			function isMouseOverPoint(point) {
+			    let dx = Common.mouse.x - point.x;
+			    let dy = Common.mouse.y - point.y;
+			    return(dx * dx + dy * dy < posRadius * posRadius);
+			}
+
+			function checkIfCursorInPoint(){
+			    if(Common.mouse && isClickDown && !pointToMove){
+			        points.forEach(point => {
+			            if(isMouseOverPoint(point)){
+			                pointToMove = point;
+			            }
+			        })
+			    }
 			}
 
 		</script>

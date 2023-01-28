@@ -1,0 +1,7 @@
+# Specify filepatterns you want git to ignore.
+
+node_modules
+game/asset/AI
+game/asset/EPS
+game/asset/PNG
+game/asset/Frame*

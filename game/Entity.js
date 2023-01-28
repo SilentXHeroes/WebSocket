@@ -12,7 +12,8 @@ class Entity extends Handler {
 		this.velocity = {
 			initial: 20,
 			onWall: -0.5,
-			jump: 1.1
+			jump: 1.1,
+			ignored: false
 		};
 
 		this.setVelocity(0);
@@ -22,11 +23,15 @@ class Entity extends Handler {
 		this.attacking = false;
 		// this.height = Common.calcY("8%");
 		// this.width = this.bodyHeight * 0.2;
-		this.currentAnimationFrameIndex = 0;
 		this.animationEnabled = true;
 		this.animationFrames = Common.frames.player;
-		this.siblingsPlateforms = [];
-		this.isDead = false;
+		this.siblingsPlateforms = null;
+		this.hurt = false;
+		this.sprites = {			
+			current: null,
+			currentSpriteIndex: 0,
+			poses: []
+		}
 		this.colision = { 
 			left: false,
 			right: false
@@ -41,27 +46,27 @@ class Entity extends Handler {
 	onLoad() {
 		this.setMaxValues();
 
-		if(this.is("Player")) this.setUniqueID(this.getId());
-		var thos = this;
-		setTimeout(function() {
-			let entity = Common.getElementById(thos.getUniqueID());
-			thos.members = {
-				0: new Member(entity, "arm.left"),
-				1: new Member(entity, "leg.left"),
-				2: new Member(entity, "body"),
-				3: new Member(entity, "head"),
-				4: new Member(entity, "leg.right"),
-				5: new Member(entity, "arm.right")
-			};
-			thos.members.arm = {
-				left: thos.members[0],
-				right: thos.members[5],
-			};
-			thos.members.leg = {
-				left: thos.members[1],
-				right: thos.members[4],
-			};
-		});
+		// if(this.is("Player")) this.setUniqueID(this.getId());
+		// var thos = this;
+		// setTimeout(function() {
+		// 	let entity = Common.getElementById(thos.getUniqueID());
+		// 	thos.members = {
+		// 		0: new Member(entity, "arm.left"),
+		// 		1: new Member(entity, "leg.left"),
+		// 		2: new Member(entity, "body"),
+		// 		3: new Member(entity, "head"),
+		// 		4: new Member(entity, "leg.right"),
+		// 		5: new Member(entity, "arm.right")
+		// 	};
+		// 	thos.members.arm = {
+		// 		left: thos.members[0],
+		// 		right: thos.members[5],
+		// 	};
+		// 	thos.members.leg = {
+		// 		left: thos.members[1],
+		// 		right: thos.members[4],
+		// 	};
+		// });
 	}
 
 	setMaxValues() {
@@ -120,7 +125,7 @@ class Entity extends Handler {
 		        x = Math.abs(parseInt(x / thos.speed));
 		        
 		        let path = Array.from({length: x + 1}, (v,k) => thos.velocity.initial - k * thos.velocity.jump <= 0 ? thos.velocity.initial - (k+1) * thos.velocity.jump : thos.velocity.initial - k * thos.velocity.jump);
-		        let total = path.reduce((a,b) => a + b);
+		        let total = path.length === 0 ? 0 : path.reduce((a,b) => a + b);
 		        return thos.getY() - plateform.getHitBoxY() + total;
 		    }
 
@@ -171,8 +176,12 @@ class Entity extends Handler {
 		this.colision.right = false;
 	}
 	setCurrentPlateform(value) {
-		if( ! value) delete this.currentPlateform;
-		else this.currentPlateform = value;
+		if(value === false) {
+			delete this.currentPlateform;
+		}
+		else {
+			this.currentPlateform = value;
+		}
 	}
 	setWalking(walking) {
 		this.walking = walking;
@@ -195,35 +204,96 @@ class Entity extends Handler {
 		}
 		this.wallJump = side;
 	}
-	setSiblingsPlateforms() {
-		if( ! this.isFalling() && ! this.isJumping() && ! this.walking) return;
+	setSiblingsPlateforms(force = false) {
+		if(this.siblingsPlateforms === null) force = true;
+
+		if(force === false && (this.isFalling() || this.isJumping() || this.walking || this.isHurt()) === false) return;
 
 		this.siblingsPlateforms = this.getSiblingsElements("Plateform");
-
-		let nextStep = this.speed * this.getFacingOperator();
 
 		for(var i in this.siblingsPlateforms) {
 			let plateform = this.siblingsPlateforms[i];
 			plateform.type = "TOO FAR";
+			// Prochaine position X
+			let nextStep = this.speed * this.getFacingOperator();
+			// Prochaine position Y
+			let nextVelocity = this.getVelocity() - this.velocity.jump;
+
+			let playerX = this.getX();
+			let playerNextX = playerX + nextStep;
+			let playerY = this.getY();
+			let playerNextY = playerY + nextVelocity;
+			let playerHBX = this.getHitBoxX();
+			let playerNextHBX = playerHBX + nextStep;
+			let playerHY = this.getHitBoxY();
+
+			let plateformX = plateform.getX();
+			let plateformY = plateform.getY();
+			let plateformHBX = plateform.getHitBoxX();
+			let plateformHBY = plateform.getHitBoxY();
+
+			plateform.clearBezierCurveCoordinates();
+			if(plateform.hasBezierCurves() && playerY > plateformY) {
+				if(
+					(plateform.isHill() && playerNextHBX >= plateformX && playerNextHBX <= plateformHBX) ||
+					(plateform.isDescent() && playerNextX >= plateformX && playerNextX <= plateformHBX)
+				) {
+					let coordinates = plateform.calcBezierCurveCoordinates(plateform.isHill() ? playerHBX : playerX, playerY);
+					plateform.setBezierCurveCoordinates(coordinates);
+					plateformHBY = coordinates.y;
+					// Si l'élément est déjà sur une plateforme, on la remplace
+					// On attend que l'élément soit bien sur la plateforme, étant donné qu'on calcule avec sa position future
+					if(this.isOnGround() && this.walkingOnPlateform(plateform)) this.setCurrentPlateform(plateform);
+				}
+			}
 
 			if(this.isCurrentPlateform(plateform)) {
 				plateform.type = "current";
 			}
-			else if(this.getX() + nextStep <= plateform.getHitBoxX() && this.getHitBoxX() + nextStep >= plateform.getX()) {
-				let nextVelocity = this.getVelocity() - this.velocity.jump;
-
-				if(this.getY() >= plateform.getHitBoxY() && this.getY() + nextVelocity <= plateform.getHitBoxY()) {
+			// Plateforme proche du joueur
+			else if(playerNextX <= plateformHBX && playerNextHBX >= plateformX) {
+				// Se trouve sur la plateforme
+				if(
+					playerY >= plateformHBY && 
+					playerNextY <= plateformHBY
+				) {
 					plateform.type = "ground";
 				}
-				else if(this.getHitBoxY() <= plateform.getY() && this.getHitBoxY() + nextVelocity >= plateform.getY()) {
+				// Se trouve sous la plateforme
+				else if(
+					playerHY <= plateformY && 
+					playerHY + nextVelocity >= plateformY
+				) {
 					plateform.type = "ceil";
 				}
-				else if(this.getY() + nextVelocity < plateform.getHitBoxY() && this.getHitBoxY() + nextVelocity >= plateform.getY()) {
-					plateform.type = "wall";
+				// Se trouve dans la hauteur de la plateforme
+				// Potentiellement un mur
+				else if(
+					playerNextY < plateformHBY && 
+					playerHY + nextVelocity > plateformY &&
+					plateform.bezierCurveCoordinates === null
+				) {
+					if(
+						// Se déplace vers la gauche
+						(
+							this.getFacing() === "left" && 
+							playerNextX <= plateformHBX && 
+							playerNextHBX > plateformHBX
+						) ||
+						// Se déplace vers la droite
+						(
+							this.getFacing() === "right" && 
+							playerNextHBX >= plateformX && 
+							playerNextX < plateformHBX
+						)
+					) {
+						plateform.type = "wall";
+					}
 				}
 			}
 		}
 	}
+
 	setSpeed(speed) {
 		this.speed = speed;
 	}
@@ -266,16 +336,16 @@ class Entity extends Handler {
 			y: this.getY() + this.getHeight() / 2
 		};
 	}
-	getAnimationFrame() {
-		let animationFrame = this.animationFrames.standing;
-		if(this.isRunning) animationFrame = this.animationFrames.running;
+	// getAnimationFrame() {
+	// 	let animationFrame = this.animationFrames.standing;
+	// 	if(this.isRunning) animationFrame = this.animationFrames.running;
 
-		if(this.currentAnimationFrameIndex >= animationFrame.length) this.currentAnimationFrameIndex = 0;
+	// 	if(this.sprites.currentSpriteIndex >= animationFrame.length) this.sprites.currentSpriteIndex = 0;
 
-		return animationFrame[this.currentAnimationFrameIndex];
-	}
+	// 	return animationFrame[this.sprites.currentSpriteIndex];
+	// }
 	animate() {
-		this.currentAnimationFrameIndex++;
+		this.sprites.currentSpriteIndex++;
 		// return this.getAnimationFrame();
 	}
 	enableAnimation()
@@ -311,6 +381,26 @@ class Entity extends Handler {
 	getVitality() {
 		return this.vitality;
 	}
+
+	isHurt(state = null) {
+		if(state !== null) {
+			this.hurt = state;
+
+			// Annule l'attaque en cours
+			if(state !== false) {
+				this.attacking = false;
+			}
+		}
+		return this.hurt !== false;
+	}
+
+	isDead() {
+		return this.getHealth() <= 0;
+	}
+
+	isAlive() {
+		return this.getHealth() > 0;
+	}
 	
 	getSpeed() {
 		return this.speed;
@@ -318,10 +408,17 @@ class Entity extends Handler {
 
 	// Prototypes
 
-	injured(amount) {
+	injured(amount, fromSide = true, sendSocket = true) {
 		this.health -= amount;
 
-		if(this.health <= 0) this.destroy();
+		// L'élément est déjà en cours d'animation, on la reset
+		if(this.isHurt()) this.resetCurrentSprite = true;
+
+		this.isHurt(this.health > 0 ? fromSide : false);
+
+		if(sendSocket) this.sendSocket({ action: "injured", amount: amount, fromSide: fromSide, playerInjuredID: this.getId() }, true);
+
+		// if(this.health <= 0) this.destroy();
 	}
 
 	printVitality() {
@@ -330,14 +427,11 @@ class Entity extends Handler {
 		let x = this.getX() + (this.getWidth() / 2) - (vitaWidth / 2);
 		let y = this.getHitBoxY() + 5;
 
-		begin();
 		bg('red');
 		rect(x, y, vitaWidth, vitaHeight);
-		fill();
-		begin();
+
 		bg('green');
 		rect(x, y, vitaWidth * ( this.health / this.vitality ), vitaHeight);
-		fill();
 	}
 
 	fire() {
@@ -392,9 +486,8 @@ class Entity extends Handler {
 		if(weapon.carrier !== null) return;
 
 		weapon.carryBy(this);
-		console.log(Common.getElementsOfConstructor("Weapon"));
+
 		Common.destroyElement(weapon);
-		console.log(Common.getElementsOfConstructor("Weapon"));
 
 		this.setWeapon(weapon);
 		this.setAim();
@@ -404,7 +497,7 @@ class Entity extends Handler {
 	jump(jumping) {
 		this.keydown.jump = jumping;
 
-		if(jumping) {
+		if(jumping && this.isHurt() === false) {
 			let isWallClimbing = this.isWallClimbing(this.getFacing());
 			if(this.isOnGround() || isWallClimbing) {
 				this.attacking = false;
@@ -432,9 +525,14 @@ class Entity extends Handler {
 
 			var opposite = side === 'left' ? 'right' : 'left';
 
-			if(walking) {
-				this.attacking = false;
-				this.running();
+			if(this.isHurt()) {
+				walking = false;
+				side = this.getFacing();
+			}
+			else if(walking) {
+				if(this.isAttacking() === false) {
+					this.running();
+				}
 			}
 			else {
 				this.standing();
@@ -488,45 +586,49 @@ class Entity extends Handler {
 
 		this.isFalling();
 
-		if(this.walking) {
-			if( ! this.onHitWall()) {
-				var vX = this.speed * this.getFacingOperator();
-				var x = this.is("CurrentPlayer") ? this.getX() : this.getScrollX();
+		// let x = this.is("CurrentPlayer") || this.is("BadGuy") ? this.getX() : this.getScrollX();
+		let x = this.getX();
+		let y = this.getY();
+		let distance = null;
 
-if( ! this.is("CurrentPlayer")) console.log(x);
-				x += vX;
+		// Blessé, il est repoussé
+		if(this.isHurt()) {
+			if(this.hurt === "left" || this.hurt === "right") this.setFacing(this.hurt);
 
-				if(this.is("CurrentPlayer")) {
-					this.setScrollX(x + Common.getScroll());
-					Common.screenScrolling = this.getScrollX() - Common.canvas.width / 2 > 0;
-					if(Common.screenScrolling) {
-						Common.setScroll(vX);
-						x = Common.canvas.width / 2;
-					}
-					else {
-						Common.clearScroll();
-					}
-				}
-				else {
-					this.setScrollX(x + vX);
-				}
-if( ! this.is("CurrentPlayer")) {
-	console.log(this.getScrollX());
-	console.log("==========");
-}
-				this.setX(x);
-			}
+			// L'élément recule uniquement pendant les 6 premières animations
+			let dRatio = 6 - this.sprites.currentSpriteIndex;
+			if(dRatio < 0) dRatio = 0;
+			distance = dRatio * 0.3 * this.getOppositeFacingOperator();
 		}
+		else if(this.walking) {
+			distance = this.speed * this.getFacingOperator();
+		}
+
+		if(this.onHitWall() || distance === null) {
+			return;
+		}
+
+		x += distance;
+
+
+		let plateform = this.getCurrentPlateform();
+		if(typeof plateform !== "undefined" && plateform.bezierCurveCoordinates) {
+			y = plateform.getBezierCurveCoordinates().y;
+		}
+
+		this.setXY(x, y);
 	}
 
 	onGround() {
-		if(!this.isOnGround()) {
+		if(!this.isOnGround() && this.velocity.ignored === false) {
 			// Walling
 			if(this.is("Player") && this.isWallClimbing(this.getFacing())) {
 				this.setVelocity(this.velocity.onWall);
 			}
 			// Jumping
-			else this.setVelocity(this.getVelocity() - this.velocity.jump);
+			else {
+				this.setVelocity(this.getVelocity() - this.velocity.jump);
+			}
 
 			this.setY(this.getY() + this.getVelocity());
 			this.setAim();
@@ -558,7 +660,14 @@ if( ! this.is("CurrentPlayer")) {
 				this.setWallJump(false);
 				this.setCurrentPlateform(plateform);
 
-				this.setY(plateform.getHitBoxY());
+				let y;
+				if(plateform.bezierCurveCoordinates) {
+					y = plateform.getBezierCurveCoordinates().y;
+				}
+				else {
+					y = plateform.getHitBoxY();
+				}
+				this.setY(y);
 				this.setVelocity(0);
 				break;
 			}
@@ -585,7 +694,7 @@ if( ! this.is("CurrentPlayer")) {
 			}
 		}
 
-		return this.getX() < plateform.getHitBoxX() && this.getHitBoxX() > plateform.getX();
+		return this.getX() <= plateform.getHitBoxX() && this.getHitBoxX() >= plateform.getX();
 	}
 
 	onHitWall() {
@@ -603,8 +712,12 @@ if( ! this.is("CurrentPlayer")) {
 				if(this.is("Player") || ! this.isOnGround()) this.setColision(plateform);
 
 				let setX = plateform.getHitBoxX();
+				let facing = this.getFacing();
+				// Si l'élément est blessé, il recule
+				// On plaque l'élément dos au mur
+				if(this.isHurt()) facing = this.getOppositeFacing();
 
-				if(this.getFacing() === "right") setX = plateform.getX() - this.getWidth();
+				if(facing === "right") setX = plateform.getX() - this.getWidth();
 
 				this.setX(setX);
 
@@ -617,93 +730,6 @@ if( ! this.is("CurrentPlayer")) {
 
 	isAttacking() {
 		return this.attacking === true;
-	}
-
-	print() {
-		// if(typeof this.members !== "undefined") 
-		// {
-		// 	let animationFrame = this.getAnimationFrame();
-		// 	let drawMembers = [0,1,2,3,4,5];;
-
-		// 	if(this.facing === 'left') drawMembers = [5,4,2,3,1,0];
-
-		// 	drawMembers.forEach(i => {
-		// 		let member = this.members[i];
-				
-		// 		if(Common.updateFrame)
-		// 		{
-		// 			let angles = animationFrame[i];
-
-		// 			if( ! (angles instanceof Array)) angles = [angles];
-
-		// 			member.setAngle(...angles);
-		// 		}
-		// 		member.draw();
-		// 	});
-
-		// 	// On passe à l'animation suivante
-		// 	if(Common.updateFrame) {
-		// 		if(this.animationEnabled) {
-		// 			this.animate();
-		// 		}
-		// 	}
-		// }
-
-		if(this.is('Player')) {
-			let currentSpriteName;
-			if(this.isAttacking()) {
-				currentSpriteName = "attacking";
-			}
-			else if(this.isJumping()) {
-				if(this.sprites.jump.over === false) {
-					currentSpriteName = "jump";
-				}
-				else {
-					currentSpriteName = "jumpLoop";
-				}
-			}
-			else if(this.isRunning) {
-				currentSpriteName = "running";
-			}
-			else {
-				currentSpriteName = "standing";
-			}
-
-			if(currentSpriteName !== "jump" && currentSpriteName !== "jumpLoop") this.sprites.jump.over = false;
-
-			if(this.sprites.current !== currentSpriteName) {
-				if(this.sprites.current !== null) this.sprites[this.sprites.current].value = 0;
-				this.currentAnimationFrameIndex = 0;
-			}
-
-			this.sprites.current = currentSpriteName;
-			let sprite = this.sprites[currentSpriteName];
-			let imgSprites = this.facing === "left" ? this.spritesLeft : this.spritesRight;
-			
-			img(imgSprites, this.currentAnimationFrameIndex * this.spriteW, sprite.y, this.spriteW, this.spriteH, this.getX() - (this.width / 2) - 10, this.getY() + this.spriteH - 5, this.spriteW, this.spriteH);
-
-			if(Common.updateFrame) {
-				if(sprite.value === sprite.elapsed) {
-					sprite.value = 0;
-					this.animate();
-					if(this.currentAnimationFrameIndex >= sprite.count) {
-						if(currentSpriteName === "attacking") {
-							this.attacking = false;
-						}
-						else if(currentSpriteName === "jump" && sprite.over === false) {
-							sprite.over = true;
-						}
-						this.currentAnimationFrameIndex = 0;
-					}
-				}
-				sprite.value++;
-			}
-
-			font(15, 'Comic Sans MS');
-			bg('black');
-			align('center');
-			text(this.name, this.getX() + this.getWidth() / 2, this.getHitBoxY() + 10);
-		}
 	}
 
 	standing() {
@@ -720,6 +746,7 @@ if( ! this.is("CurrentPlayer")) {
 
 	attack() {
 		this.attacking = true;
+		this.sprites.poses.attacking.hit = false;
 	}
 
 	stopWalling() {
@@ -732,6 +759,123 @@ if( ! this.is("CurrentPlayer")) {
 		}
 	}
 
+	printNickname() {
+		font(15, 'Comic Sans MS');
+		bg('black');
+		align('center');
+		text(this.name, this.getX() + (this.getWidth() / 2), this.getHitBoxY() + 10);
+	}
+
+	printCurrentSprite() {
+		let currentSprite = this.sprites.poses[this.sprites.current];
+		let plateform = this.getCurrentPlateform();
+		let image = this.facing === "left" ? this.spritesLeft : this.spritesRight;
+		let imageX = 
+			(Common.isScrolling() && this.is("CurrentPlayer") ? 
+				(Common.canvas.width / 2) - this.getWidth() : 
+				// (typeof plateform !== "undefined" && plateform.bezierCurveCoordinates ? 
+				// 	plateform.getBezierCurveCoordinates().x - this.getWidth() : 
+					this.getX()
+				// )
+				- this.getHalfWidth() - (this.is("AnotherPlayer", "BadGuy") ? Common.getScroll() : 0)
+			) - 10;
+		let imageY = this.getY() + this.spriteH - 5;
+
+		if(this.is("BadGuy")) filter("grayscale(0.5) contrast(0.5)");
+
+		img(
+			image, 
+			this.sprites.currentSpriteIndex * this.spriteW, // X de la portion à découper
+			currentSprite.y, // Y de la portion à découper
+			this.spriteW, // Largeur découpée
+			this.spriteH, // Hauteur découpée
+			// Position X dans le canvas
+			imageX,
+			imageY, // Position Y dans le canvas
+			this.spriteW, // Largeur de l'image finale
+			this.spriteH // Hauteur de l'image finale
+		);
+
+		if(this.is("BadGuy")) filter("none");
+	}
+
+	updateCurrentSprite() {		
+		let currentSpriteName;
+		if(this.isAttacking()) {
+			currentSpriteName = "attacking";
+		}
+		else if(this.isJumping()) {
+			if(this.sprites.poses.jump.over === false) {
+				currentSpriteName = "jump";
+			}
+			else {
+				currentSpriteName = "jumpLoop";
+			}
+		}
+		else if(this.isRunning) {
+			currentSpriteName = "running";
+		}
+		else if(this.isDead()) {
+			currentSpriteName = "dying";
+		}
+		else if(this.isHurt()) {
+			currentSpriteName = "hurt";
+		}
+		else {
+			currentSpriteName = "standing";
+		}
+
+		if(currentSpriteName !== "jump" && currentSpriteName !== "jumpLoop" && currentSpriteName !== "dying") this.sprites.poses.jump.over = false;
+
+		// Animations différentes, on force la nouvelle animation
+		if(this.sprites.current !== currentSpriteName || this.resetCurrentSprite === true) {
+			if(this.sprites.current !== null) this.sprites.poses[this.sprites.current].step = 0;
+			this.sprites.currentSpriteIndex = 0;
+			this.resetCurrentSprite = false;
+		}
+
+		this.sprites.current = currentSpriteName;
+	}
+
+	updateAnimationIndex() {		
+		if(Common.updateFrame) {
+			let currentSprite = this.sprites.poses[this.sprites.current];
+
+			// L'animation peut être trop rapide, on définit alors un nombre de tics avant de passer à l'animation suivante
+			if(currentSprite.step >= currentSprite.stepsToIgnoreBetweenSprites) {
+				currentSprite.step = 0;
+
+				if(this.sprites.current !== "dying" || currentSprite.over === false) {
+					this.animate();
+				}
+
+				// Animation terminée
+				if(this.sprites.currentSpriteIndex >= currentSprite.count) {
+					// Attaque terminée, on change son état
+					if(this.sprites.current === "attacking") {
+						this.attacking = false;
+					}
+					// Animation de blessure terminée, l'élément n'est plus blessé
+					else if(this.sprites.current === "hurt") {
+						this.isHurt(false);
+					}
+					// Saut à l'infini
+					else if(currentSprite.over === false) {
+						if(this.sprites.current === "jump" || this.sprites.current === "dying") {
+							currentSprite.over = true;
+						}
+					}
+					if(this.sprites.current !== "dying") {
+						this.sprites.currentSpriteIndex = 0;
+					}
+				}
+
+				if(currentSprite.over === true && this.sprites.current === "dying") this.sprites.currentSpriteIndex = currentSprite.count - 1;
+			}
+			currentSprite.step++;
+		}
+	}
+
 	onDraw() {
 		if(Common.updateFrame) {
 			// Appel du pathIA en premier pour définir les plateformes trop proches
@@ -741,9 +885,72 @@ if( ! this.is("CurrentPlayer")) {
 			this.onGround();
 		}
 
-		if(this.isArmed()) this.getWeapon().onDraw();
+		if(this.isArmed()) {
+			this.getWeapon().onDraw();
+		}
+
+		// if(this.bezierCurveCoordinates) {
+		// 	begin();
+		// 	bg("red");
+		// 	circle(this.bezierCurveCoordinates.x, this.bezierCurveCoordinates.y, 5);
+		// 	fill();
+
+		// 	let currentSprite = this.sprites.poses[this.sprites.current];
+		// 	if(typeof currentSprite !== "undefined") {
+		// 		let image = this.facing === "left" ? this.spritesLeft : this.spritesRight;
+		// 		let imageX = 
+		// 			(Common.isScrolling() && this.is("CurrentPlayer") ? 
+		// 				(Common.canvas.width / 2) - this.getWidth() : 
+		// 				this.bezierCurveCoordinates.x - this.getHalfWidth() - (this.is("AnotherPlayer", "BadGuy") ? Common.getScroll() : 0)
+		// 			) - 10;
+		// 		let imageY = this.bezierCurveCoordinates.y + this.spriteH - 5;
+
+		// 		img(
+		// 			image, 
+		// 			this.sprites.currentSpriteIndex * this.spriteW, // X de la portion à découper
+		// 			currentSprite.y, // Y de la portion à découper
+		// 			this.spriteW, // Largeur découpée
+		// 			this.spriteH, // Hauteur découpée
+		// 			// Position X dans le canvas
+		// 			imageX,
+		// 			imageY, // Position Y dans le canvas
+		// 			this.spriteW, // Largeur de l'image finale
+		// 			this.spriteH // Hauteur de l'image finale
+		// 		);
+
+		// 		font(12, 'Sans-Serif');
+		// 		bg('black');
+		// 		text(`${ Math.floor(imageX) } ; ${ Math.floor(imageY) }`, imageX + (this.spriteW / 2), imageY);
+		// 	}
+		// }
+
+		if(this.isAttacking() && this.hitbox && this.sprites.currentSpriteIndex > 7 && this.sprites.poses.attacking.hit === false) {
+			let targetHit = null;
+			let elements = Common.getElementsOfConstructor("BadGuy");
+			let facing = this.getFacing();
+			elements.push(...this.getOtherPlayers());
+			for(let i in elements) {
+				if(
+					this.hitbox[facing] >= elements[i].getX() &&
+					this.hitbox[facing] <= elements[i].getHitBoxX() &&
+					elements[i].isAlive() && targetHit === null &&
+					(
+						(this.hitbox.top >= elements[i].getY() && this.hitbox.top <= elements[i].getHitBoxY()) ||
+						(this.hitbox.bottom >= elements[i].getY() && this.hitbox.bottom <= elements[i].getHitBoxY())
+					)
+				) {
+					targetHit = elements[i];
+					targetHit.injured(5, this.getOppositeFacing());
+					this.sprites.poses.attacking.hit = true;
+					break;
+				}
+			}
+		}
 
 		super.draw();
-		this.print();
+		this.updateCurrentSprite();
+		this.printCurrentSprite();
+		this.updateAnimationIndex();
+		this.printNickname();
 	}
 }

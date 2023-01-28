@@ -18,10 +18,16 @@ class _Common {
 		this.framesCounter = 0;
 		this.calculatedFpsRatio = false;
 		this.frames = {};
-		this.toDraw = [];
-		this.testFrames = {
-			frame: 1,
-			counter: 0
+		this.fps = 0;
+
+		this.mouse = {
+			x: 0,
+			y: 0,
+			clientX: 0,
+			clientY: 0,
+			down: false,
+			up: true,
+			move: false
 		};
 
 		this.Sockets = {
@@ -29,15 +35,47 @@ class _Common {
 		};
 
 		this.toLoad = [ "_Image" ];
+
+		this.MouseDown = this.subscriber();
+		this.MouseMove = this.subscriber();
+		this.MouseUp = this.subscriber();
+		this.MouseClick = this.subscriber();
+		this.Draw = this.subscriber();
 		
 		this.setFrameRate(60);
 		this.sockets();
 		this.getFrameRate();
 
 		this.events = {
-			mousePosition: e => { this.mousePosition = this.calcMousePosition(e); },			
-			mouseClick: e => {
-				this.getElementsOfConstructor("BadGuy").forEach(x => x.setPurpose("goToPosition", Common.getMousePosition()))
+			mouseClick: () => {
+				// this.getElementsOfConstructor("BadGuy").forEach(x => x.setPurpose("goToPosition", Common.getMousePosition()));
+				
+				this.MouseClick.execute();
+			},
+			mouseDown: () => {
+				this.mouse.down = true;
+				this.mouse.up = false;
+
+				this.MouseDown.execute();
+			},
+			mouseMove: e => {
+				this.updateMouseCoordinates(e);
+
+				clearTimeout(this.mouse.timeoutMoving);
+				this.mouse.move = true;
+
+				this.MouseMove.execute();
+
+				let thos = this;
+				this.mouse.timeoutMoving = setTimeout(function() {
+					thos.mouse.move = false;
+				});
+			},
+			mouseUp: () => {
+				this.mouse.up = true;
+				this.mouse.down = false;
+
+				this.MouseUp.execute();
 			},
 			weapon: {
 				click: () => { if(this.current) this.current.fire(); },
@@ -47,22 +85,33 @@ class _Common {
 			}
 		};
 
-		let xhr = new XMLHttpRequest();
-		xhr.responseType = "json";
-		xhr.open("GET", "asset/player.frames.json");
-		xhr.onload = () => { Common.frames.player = xhr.response; };
-		xhr.send();
+		// let xhr = new XMLHttpRequest();
+		// xhr.responseType = "json";
+		// xhr.open("GET", "asset/player.frames.json");
+		// xhr.onload = () => { Common.frames.player = xhr.response; };
+		// xhr.send();
 
-		canvas.addEventListener('mousemove', this.events.mousePosition);
-		canvas.addEventListener('mousemove', this.events.weapon.mouseMove);
+		canvas.addEventListener('mousedown', this.events.mouseDown);
+		canvas.addEventListener('mousemove', this.events.mouseMove);
+		canvas.addEventListener('mouseup', this.events.mouseUp);
 		canvas.addEventListener('click', this.events.mouseClick);
+
+		canvas.addEventListener('mousemove', this.events.weapon.mouseMove);
 		canvas.addEventListener("click", this.events.weapon.click);
 		canvas.addEventListener('mousedown', this.events.weapon.mouseDown);
 		canvas.addEventListener('mouseup', this.events.weapon.mouseUp);
 	}
 
-	subscribeDraw(fn) {
-		this.toDraw.push(fn);
+	subscriber(event, fn) {
+		return new class {
+			constructor() { this.subs = []; }
+			subscribe(fn) { this.subs.push(fn); }
+			execute() { this.subs.forEach(sub => sub()) }
+		};
+	}
+
+	isUniqueID(str) {
+		return /^[a-zA-Z0-9]{8}-([a-zA-Z0-9]{4}-){3}[a-zA-Z0-9]{12}$/.test(str);
 	}
 
 	getPlateforms(cond = null) {
@@ -89,7 +138,12 @@ class _Common {
 		return this.elements;
 	}
 	getElementsOfConstructor(...constructors) {
-		return this.elements.filter(element => element.is(...constructors));
+		let matches = this.elements.filter(element => element.is(...constructors))
+		// Joueur local
+		if(constructors.includes("CurrentPlayer")) {
+			matches.push(Common.current);
+		}
+		return matches;
 	}
 	addElement(obj) {
 		this.elements.push(obj);
@@ -108,8 +162,28 @@ class _Common {
 		let id = typeof obj === "string" ? obj : obj.getUniqueID();
 		this.elements = this.elements.filter(element => element.uniqueID !== id);
 	}
-	setScroll(distance) {
-		this.scrollX += distance;
+
+	/*
+	 * SCROLLING
+	 */
+	isScrolling(state = null) {
+		if(state !== null) {
+			this.scrollOnX = state;
+		}
+		return this.scrollOnX;
+	}
+	updateScroll() {
+		if(Common.current) {
+			let diff = (Common.current.getX() + Common.current.getHalfWidth()) - (this.canvas.width / 2);
+			this.isScrolling(diff > 0);
+			if(this.isScrolling()) {
+				this.scrollX = diff;
+			}
+			else {
+				this.clearScroll();
+			}
+			this.updateMouseCoordinates();
+		}
 	}
 	clearScroll() {
 		this.scrollX = 0;
@@ -117,19 +191,24 @@ class _Common {
 	getScroll() {
 		return this.scrollX;
 	}
-	drawPos(obj) {
-		let x = parseInt(obj.getScrollX());
-		var txt = x + ' ; ' + parseInt(obj.getY());
-		bg("black");
-		font(12, "Sans-Serif");
-		text(txt, obj.getX() + obj.getWidth() / 2, obj.getHitBoxY() + 10);
-	}
+
+	/**************/
+
 	getMousePosition() {
-		return this.mousePosition;
+		return { x: this.mouse.x, y: this.mouse.y };
 	}
-	calcMousePosition(e) {
+	updateMouseCoordinates(e = null) {
 		let bounds = Common.canvas.node.getBoundingClientRect();
-		return {x: e.clientX - bounds.left, y: Common.canvas.height - (e.clientY - bounds.top)};
+		let mouseClientX = e ? e.clientX : this.mouse.clientX;
+		let mouseClientY = e ? e.clientY : this.mouse.clientY;
+
+		this.mouse.x = mouseClientX - bounds.left + Common.getScroll();
+		this.mouse.y = Common.canvas.height - (mouseClientY - bounds.top);
+
+		if(e !== null) {
+			this.mouse.clientX = e.clientX;
+			this.mouse.clientY = e.clientY;
+		}
 	}
 	calcForFrameRate(value) {
 		// Rafraichissement de référence: 60 Hz
@@ -150,8 +229,12 @@ class _Common {
 		this.socket.on("build", data => {
 			Common.buildFromSocket = true;
 			switch(data.action) {
-				case "build": Common.startGame(data.data); break;
-
+				case "build": 
+					Common.startGame(data.plateforms);
+					for(var i in data.players) {
+						Common.newElement('Player', data.players[i]);
+					}
+					break;
 				case "weapon-spawn": Common.newElement("Weapon", data.type); break;
 			}
 			Common.buildFromSocket = false;
@@ -166,23 +249,32 @@ class _Common {
 		});
 
 		this.socket.on("player-disconnect", id => {
-			Common.destroyElement(id);
+			let player = Common.getPlayer(id);
+			if(typeof player !== "undefined") {
+				Common.destroyElement(player.getUniqueID());
+			}
 		});
 
 		this.socket.on("player-update", data => {
 			Common.buildFromSocket = true;
 			let player = Common.getPlayer(data.id);
+			if(typeof player === "undefined") return;
 			switch(data.action) {
 				/*
 				 * Player
 				 */
 
 				case "player-event": 
-					player.setScrollX(data.position.x);
-					data.position.x -= Common.getScroll();
-					console.log("POSITION: " + data.position.x);
-					player.setPosition(data.position);
+					if(data.position) player.setPosition(data.position);
 					player._playerEvents({ keyCode: data.keyCode, type: data.type });
+					break;
+
+				case "injured":
+					let playerInjured = Common.getPlayer(data.playerInjuredID);
+					// player.ignoreNextSocket();
+					if(typeof playerInjured !== "undefined") {
+						playerInjured.injured(data.amount, data.fromSide, false);
+					}
 					break;
 
 				/*
@@ -215,12 +307,28 @@ class _Common {
 
 		if(typeof plateforms === "undefined" && this.toBuild !== "undefined") plateforms = this.toBuild;
 
+		if(typeof plateforms === "undefined") return;
+
+		this.elements = [];
+		this.calculatedFpsRatio = false;
+		delete this.current;
+
 		plateforms.forEach(plateform => {
-			let x = this.calcX(plateform.x);
-			let y = this.calcY(plateform.y);
-			let width = this.calcX(plateform.width);
-			let height = this.calcY(plateform.height);
-			this.newElement('Plateform', plateform.shape, x, y, width, height);
+			let args = [ "Plateform", plateform.shape ];
+			if(plateform.shape === "dots") {
+				args.push(plateform.dots);
+			}
+			else {
+				// Coordonnée X
+				args.push(this.calcX(plateform.x));
+				// Coordonnée Y
+				args.push(this.calcY(plateform.y));
+				// Largeur
+				args.push(this.calcX(plateform.width));
+				// Hauteur
+				args.push(this.calcY(plateform.height));
+			}
+			this.newElement(...args);
 		});
 
 		this.animate();
@@ -288,15 +396,8 @@ class _Common {
 			if(Common.updateFrame) {
 				Common.calculateFrameRate(false);
 				Common.framesCounter -= Common.frameRate;
-
-				Common.testFrames.counter++;
-				if(Common.testFrames.counter === 10) {
-					Common.testFrames.frame++;
-					Common.testFrames.counter = 0;
-				}
-				if(Common.testFrames.frame > 6) Common.testFrames.frame = 1;
 			}
-			img(Images.player["frame" + Common.testFrames.frame].png, i, 130, 40, 80);
+
 			Common.displayFrameRate();
 
 			for(var i in players) players[i].onDraw();
@@ -304,7 +405,7 @@ class _Common {
 			for(var i in weapons) weapons[i].onDraw();
 		}
 
-		Common.toDraw.forEach(fn => fn(Common.board));
+		Common.Draw.execute(Common.board);
 
 		Common.animate();
 	}
@@ -326,7 +427,9 @@ class _Common {
 	getFrameRate(state = true) {
 		this.timeExecution = 0;
 		this.lastFrameRate = ! state;
-		this.framesRates = [];
+		// this.framesRates = [];
+		this.totalFramesRate = 0;
+		this.lengthFramesRate = 0;
 	}
 
 	calculateFrameRate(showFrameRate = true) {
@@ -334,20 +437,27 @@ class _Common {
 		if( ! this.lastFrameRate) {
 			this.lastFrameRate = now;
 			this.timeExecution = 0;
-			this.framesRates = [];
+			// this.framesRates = [];
+			this.totalFramesRate = 0;
+			this.lengthFramesRate = 0;
 		}
 		else if(this.timeExecution > 500) {
 			this.getFrameRate(false);
 		}
 		else if(this.lastFrameRate !== true) {
 			let fps = Math.ceil(1 / ((now - this.lastFrameRate) / 1000));
-			
-			this.framesRates.push(fps);
 
-			let total = 0;
-			this.framesRates.forEach(val => total += val);
+			this.totalFramesRate += fps;
+			this.lengthFramesRate++;
 
-			this.fps = parseInt(total / this.framesRates.length);
+			this.fps = Math.floor(this.totalFramesRate / this.lengthFramesRate);
+
+			// this.framesRates.push(fps);
+
+			// let total = 0;
+			// this.framesRates.forEach(val => total += val);
+
+			// this.fps = Math.floor(total / this.framesRates.length);
 
 			this.lastFrameRate = now;
 			this.timeExecution++;
