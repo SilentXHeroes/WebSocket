@@ -233,17 +233,21 @@ class Entity extends Handler {
 			let plateformHBY = plateform.getHitBoxY();
 
 			plateform.clearBezierCurveCoordinates();
-			if(plateform.hasBezierCurves() && playerY > plateformY) {
-				if(
-					(plateform.isHill() && playerNextHBX >= plateformX && playerNextHBX <= plateformHBX) ||
-					(plateform.isDescent() && playerNextX >= plateformX && playerNextX <= plateformHBX)
-				) {
-					let coordinates = plateform.calcBezierCurveCoordinates(plateform.isHill() ? playerHBX : playerX, playerY);
-					plateform.setBezierCurveCoordinates(coordinates);
-					plateformHBY = coordinates.y;
-					// Si l'élément est déjà sur une plateforme, on la remplace
-					// On attend que l'élément soit bien sur la plateforme, étant donné qu'on calcule avec sa position future
-					if(this.isOnGround() && this.walkingOnPlateform(plateform)) this.setCurrentPlateform(plateform);
+			if(plateform.hasBezierCurves()) {
+				console.log(playerY, '>', plateformY);
+				if(playerY > plateformY) {
+					console.log(plateform.isHill(), "&&", playerNextHBX, '>=', plateformX, "&&", playerNextHBX, '<=', plateformHBX);
+					if(
+						(plateform.isHill() && playerNextHBX >= plateformX && playerNextHBX <= plateformHBX) ||
+						(plateform.isDescent() && playerNextX >= plateformX && playerNextX <= plateformHBX)
+					) {
+						let coordinates = plateform.calcBezierCurveCoordinates(plateform.isHill() ? playerNextHBX : playerNextX);
+						plateform.setBezierCurveCoordinates(coordinates);
+						plateformHBY = coordinates.y;
+						// Si 2 plateformes sont côte à côte
+						// On attend que l'élément soit bien sur la nouvelle plateforme, étant donné qu'on calcule avec sa position future
+						if(this.isOnGround() && this.walkingOnPlateform(plateform)) this.setCurrentPlateform(plateform);
+					}
 				}
 			}
 
@@ -287,6 +291,7 @@ class Entity extends Handler {
 							playerNextX < plateformHBX
 						)
 					) {
+						console.log(plateform);
 						plateform.type = "wall";
 					}
 				}
@@ -435,15 +440,15 @@ class Entity extends Handler {
 	}
 
 	fire() {
-		if(this.weapon) this.weapon.fire("semi-automatic");
+		if(this.isArmed()) this.getWeapon().fire("semi-automatic");
 	}
 
 	setFire(firing) {
-		if(this.weapon) this.weapon.setFire(firing);
+		if(this.isArmed()) this.getWeapon().setFire(firing);
 	}
 
-	setAiming(aim) {
-		this.aiming = aim;
+	setAimingFromEvent(aim) {
+		if(this.isArmed()) this.getWeapon().setAim(aim.mouse, aim.handPos);
 	}
 
 	getAim() {
@@ -453,9 +458,10 @@ class Entity extends Handler {
 	}
 
 	setAim() {
-		if(this.isArmed()) {
-			this.getWeapon().setAim();
+		if(Common.Sockets.enableAim && this.isArmed()) {
+			return this.getWeapon().setAim();
 		}
+		return null;
 	}
 
 	setWeapon(weapon) {
@@ -491,7 +497,7 @@ class Entity extends Handler {
 
 		this.setWeapon(weapon);
 		this.setAim();
-		this.sendSocket({ action: "carry-weapon", type: weapon.type, aim: this.aiming })
+		this.sendSocket({ action: "carry-weapon", type: weapon.type })
 	}
 
 	jump(jumping) {
@@ -768,18 +774,21 @@ class Entity extends Handler {
 
 	printCurrentSprite() {
 		let currentSprite = this.sprites.poses[this.sprites.current];
-		let plateform = this.getCurrentPlateform();
 		let image = this.facing === "left" ? this.spritesLeft : this.spritesRight;
 		let imageX = 
 			(Common.isScrolling() && this.is("CurrentPlayer") ? 
 				(Common.canvas.width / 2) - this.getWidth() : 
-				// (typeof plateform !== "undefined" && plateform.bezierCurveCoordinates ? 
-				// 	plateform.getBezierCurveCoordinates().x - this.getWidth() : 
-					this.getX()
-				// )
-				- this.getHalfWidth() - (this.is("AnotherPlayer", "BadGuy") ? Common.getScroll() : 0)
+				this.getX() - this.getHalfWidth() - (this.is("AnotherPlayer", "BadGuy") ? Common.getScroll() : 0)
 			) - 10;
 		let imageY = this.getY() + this.spriteH - 5;
+		let plateform = this.getCurrentPlateform();
+
+		// if(this.isOnGround() && plateform.bezierCurveCoordinates) {
+		// 	begin();
+		// 	bg("red");
+		// 	circle(plateform.bezierCurveCoordinates.x, plateform.bezierCurveCoordinates.y, 5);
+		// 	fill();
+		// }
 
 		if(this.is("BadGuy")) filter("grayscale(0.5) contrast(0.5)");
 
@@ -889,58 +898,21 @@ class Entity extends Handler {
 			this.getWeapon().onDraw();
 		}
 
-		// if(this.bezierCurveCoordinates) {
-		// 	begin();
-		// 	bg("red");
-		// 	circle(this.bezierCurveCoordinates.x, this.bezierCurveCoordinates.y, 5);
-		// 	fill();
-
-		// 	let currentSprite = this.sprites.poses[this.sprites.current];
-		// 	if(typeof currentSprite !== "undefined") {
-		// 		let image = this.facing === "left" ? this.spritesLeft : this.spritesRight;
-		// 		let imageX = 
-		// 			(Common.isScrolling() && this.is("CurrentPlayer") ? 
-		// 				(Common.canvas.width / 2) - this.getWidth() : 
-		// 				this.bezierCurveCoordinates.x - this.getHalfWidth() - (this.is("AnotherPlayer", "BadGuy") ? Common.getScroll() : 0)
-		// 			) - 10;
-		// 		let imageY = this.bezierCurveCoordinates.y + this.spriteH - 5;
-
-		// 		img(
-		// 			image, 
-		// 			this.sprites.currentSpriteIndex * this.spriteW, // X de la portion à découper
-		// 			currentSprite.y, // Y de la portion à découper
-		// 			this.spriteW, // Largeur découpée
-		// 			this.spriteH, // Hauteur découpée
-		// 			// Position X dans le canvas
-		// 			imageX,
-		// 			imageY, // Position Y dans le canvas
-		// 			this.spriteW, // Largeur de l'image finale
-		// 			this.spriteH // Hauteur de l'image finale
-		// 		);
-
-		// 		font(12, 'Sans-Serif');
-		// 		bg('black');
-		// 		text(`${ Math.floor(imageX) } ; ${ Math.floor(imageY) }`, imageX + (this.spriteW / 2), imageY);
-		// 	}
-		// }
-
 		if(this.isAttacking() && this.hitbox && this.sprites.currentSpriteIndex > 7 && this.sprites.poses.attacking.hit === false) {
-			let targetHit = null;
 			let elements = Common.getElementsOfConstructor("BadGuy");
 			let facing = this.getFacing();
 			elements.push(...this.getOtherPlayers());
 			for(let i in elements) {
+				if(elements[i].isDead()) continue;
 				if(
 					this.hitbox[facing] >= elements[i].getX() &&
 					this.hitbox[facing] <= elements[i].getHitBoxX() &&
-					elements[i].isAlive() && targetHit === null &&
 					(
 						(this.hitbox.top >= elements[i].getY() && this.hitbox.top <= elements[i].getHitBoxY()) ||
 						(this.hitbox.bottom >= elements[i].getY() && this.hitbox.bottom <= elements[i].getHitBoxY())
 					)
 				) {
-					targetHit = elements[i];
-					targetHit.injured(5, this.getOppositeFacing());
+					elements[i].injured(5, this.getOppositeFacing());
 					this.sprites.poses.attacking.hit = true;
 					break;
 				}

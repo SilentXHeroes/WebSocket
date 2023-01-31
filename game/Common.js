@@ -27,7 +27,19 @@ class _Common {
 			clientY: 0,
 			down: false,
 			up: true,
-			move: false
+			move: false,
+			e: {
+				mousemove: null,
+				mousedown: null,
+				mouseup: null,
+				click: null,
+				deltaTime: {
+					mousemove: 0,
+					mousedown: 0,
+					mouseup: 0,
+					click: 0,
+				}
+			}
 		};
 
 		this.Sockets = {
@@ -47,15 +59,16 @@ class _Common {
 		this.getFrameRate();
 
 		this.events = {
-			mouseClick: () => {
+			mouseClick: e => {
 				// this.getElementsOfConstructor("BadGuy").forEach(x => x.setPurpose("goToPosition", Common.getMousePosition()));
-				
+				this.updateMouseEvent(e);
 				this.MouseClick.execute();
 			},
-			mouseDown: () => {
+			mouseDown: e => {
 				this.mouse.down = true;
 				this.mouse.up = false;
 
+				this.updateMouseEvent(e);
 				this.MouseDown.execute();
 			},
 			mouseMove: e => {
@@ -64,6 +77,7 @@ class _Common {
 				clearTimeout(this.mouse.timeoutMoving);
 				this.mouse.move = true;
 
+				this.updateMouseEvent(e);
 				this.MouseMove.execute();
 
 				let thos = this;
@@ -71,17 +85,12 @@ class _Common {
 					thos.mouse.move = false;
 				});
 			},
-			mouseUp: () => {
+			mouseUp: e => {
 				this.mouse.up = true;
 				this.mouse.down = false;
 
+				this.updateMouseEvent(e);
 				this.MouseUp.execute();
-			},
-			weapon: {
-				click: () => { if(this.current) this.current.fire(); },
-				mouseDown: () => { if(this.current) this.current.setFire(true); },
-				mouseUp: () => { if(this.current) this.current.setFire(false); },
-				mouseMove: () => { if(this.current) this.current.setAim(); }
 			}
 		};
 
@@ -95,11 +104,6 @@ class _Common {
 		canvas.addEventListener('mousemove', this.events.mouseMove);
 		canvas.addEventListener('mouseup', this.events.mouseUp);
 		canvas.addEventListener('click', this.events.mouseClick);
-
-		canvas.addEventListener('mousemove', this.events.weapon.mouseMove);
-		canvas.addEventListener("click", this.events.weapon.click);
-		canvas.addEventListener('mousedown', this.events.weapon.mouseDown);
-		canvas.addEventListener('mouseup', this.events.weapon.mouseUp);
 	}
 
 	subscriber(event, fn) {
@@ -108,6 +112,13 @@ class _Common {
 			subscribe(fn) { this.subs.push(fn); }
 			execute() { this.subs.forEach(sub => sub()) }
 		};
+	}
+
+	updateMouseEvent(e) {
+		if(this.mouse.e[e.type] !== null) {
+			this.mouse.e.deltaTime[e.type] = e.timeStamp - this.mouse.e[e.type].timeStamp;
+		}
+		this.mouse.e[e.type] = e;
 	}
 
 	isUniqueID(str) {
@@ -235,7 +246,7 @@ class _Common {
 						Common.newElement('Player', data.players[i]);
 					}
 					break;
-				case "weapon-spawn": Common.newElement("Weapon", data.type); break;
+				case "weapon-spawn": Common.newElement("Weapon", data); break;
 			}
 			Common.buildFromSocket = false;
 		});
@@ -280,19 +291,19 @@ class _Common {
 				/*
 				 * Weapon
 				 */
-				case "carry-weapon": 
-					let weapon = new Weapon(data.type);
-					player.setAiming(data.aim);
+				case "carry-weapon":
+					let weapon = new Weapon(data);
+					// player.setAiming(data.aim);
 					player.carryWeapon(weapon); 
 					break;
 
 				case "fire": 
-					player.setAiming(data.aim);
+					player.setAimingFromEvent(data.aim);
 					player.weapon.fire(player.weapon.gunType); 
 					break;
 
 				case "aim":
-					player.setAiming(data.aim);
+					player.setAimingFromEvent(data.aim);
 					break;
 			}
 			Common.buildFromSocket = false;

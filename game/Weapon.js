@@ -8,17 +8,19 @@ class Weapon extends Handler {
 		this.isFiring = false;
 		this.speedFire = 0;
 		this.carrier = null;
+		this.lastAimTimeStamp = null;
 
-		if(createFromWeapon) {
+		if(createFromWeapon || Common.buildFromSocket) {
 			this.type = data.type;
-			this.img = Images.weapons[data.type];
 		}
 		else {
 			this.type = data;
-			this.img = Images.weapons[data];
 		}
 
+		this.img = Images.weapons[this.type];
 		this.gunType = (this.type === 'gun' ? 'semi-' : '') + 'automatic';
+
+		if(typeof this.img === "undefined") this.img = Images.weapons.gun;
 
 		this.setWidth(this.img.width);
 		this.setHeight(this.img.height);
@@ -28,17 +30,19 @@ class Weapon extends Handler {
 			let operator = data.carrier.getFacingOperator();
 			position = {x: (operator < 0 ? data.carrier.getX() : data.carrier.getHitBoxX()) + 20 * operator, y: data.carrier.getY() + 15};
 		}
+		else if(Common.buildFromSocket) {
+			position = data.position;
+		}
 		else {
 			position = this.getRandomPosition();
 			position.y += 5;
 		}
 
 		this.setPosition(position);
-		this.setAim();
 
 		if(Common.buildFromSocket) return;
 
-		Common.socket.emit("build", { action: "weapon-spawn", type: this.type, src: this.img.src, pos: position });
+		Common.socket.emit("build", { action: "weapon-spawn", type: this.type, position: position });
 	}
 
 	carryBy(player) {
@@ -57,8 +61,11 @@ class Weapon extends Handler {
 	fire(type) {
 		if(type !== this.gunType) return;
 
-		Common.newElement('Bullet', this.carrier, 3, 10);
-		this.sendSocket({ action: "fire", aim: this.carrier.aiming });
+		this.carrier.setAim(this.setAim());
+
+		Common.newElement('Bullet', this.carrier, 2, 10);
+
+		this.sendSocket({ action: "fire", aim: this.getAim() });
 	}
 
 	setFire(state) {
@@ -77,26 +84,40 @@ class Weapon extends Handler {
 		return this.carrier;
 	}
 
-	setAim() {
-		if(this.isUnused() || ! this.getCarrier().isCurrentPlayer()) return;
+	setAim(mouseXY = null, handXY = null) {
+		let preventAim = this.isUnused() || ! this.getCarrier().isCurrentPlayer();
+		if(preventAim && mouseXY === null && handXY === null) {
+			return;
+		}
 
-		let mouse = Common.getMousePosition();
-		let handPos = this.getCarrier().getHandsPos();
-		let xDiff = mouse.x - handPos.x;
-		let yDiff = mouse.y - handPos.y;
-		let lengthBtwPoints = Math.sqrt(Math.pow(xDiff, 2) + Math.pow(yDiff, 2));
-		let steps = lengthBtwPoints / this.getCarrier().getSpeed();
+		if(mouseXY === null) mouseXY = Common.getMousePosition();
+		if(handXY === null) handXY = this.getCarrier().getHandsPos();
+		let line = getLineEquation(handXY, mouseXY);
+		let step = line.length / this.getCarrier().getSpeed();
 
 		this.aiming = {
-			length: lengthBtwPoints,
-			mouse: mouse,
-			steps: {
-				x: xDiff / steps,
-				y: yDiff / steps
-			}
+			length: line.length,
+			mouse: mouseXY,
+			handPos: handXY,
+			step: {
+				x: line.diff.x / step,
+				y: line.diff.y / step
+			},
+			line: line,
+			fx: line.Fx,
+			fy: line.Fy
 		};
 
-		if(Common.updateFrame && Common.Sockets.enableAim) this.sendSocket({ action: "aim", aim: this.aiming });
+		if(preventAim === false && Common.updateFrame && Common.Sockets.enableAim) {
+			// console.log(this.lastAimTimeStamp, Common.mouse.e.mousemove.timeStamp, Common.mouse.e.mousemove.timeStamp - this.lastAimTimeStamp);
+			if(this.lastAimTimeStamp === null || Common.mouse.e.mousemove.timeStamp - this.lastAimTimeStamp > 50) {
+			// if(Common.mouse.e.deltaTime.mousemove > 50) {
+				this.lastAimTimeStamp = Common.mouse.e.mousemove.timeStamp;
+				this.sendSocket({ action: "aim", aim: this.aiming });
+			}
+		}
+
+		return this.aiming;
 	}
 
 	getAim() {
@@ -104,24 +125,24 @@ class Weapon extends Handler {
 	}
 
 	printAim() {
-		if(this.isUnused()) return;
+		if(this.isUnused() || typeof this.getAim() === "undefined" || Common.Sockets.enableAim === false) return;
 
 		Common.getElementsOfConstructor('Plateform').forEach(x => x.setColor('lightgreen'));
 
 		let handsPos = this.getCarrier().getHandsPos();
-		let aiming = this.getAim();
-		let stepX = aiming.steps.x;
-		let stepY = aiming.steps.y;
+		let aim = this.getAim();
+		let stepX = aim.step.x;
+		let stepY = aim.step.y;
 
 		begin();
 		move(handsPos.x, handsPos.y);
 		strokeColor('red');
-		line(aiming.mouse.x, aiming.mouse.y, 2);
+		line(aim.mouse.x, aim.mouse.y, 2);
 		stroke();
 
 		begin();
 		bg('red');
-		circle(aiming.mouse.x, aiming.mouse.y, 7);
+		circle(aim.mouse.x, aim.mouse.y, 7);
 		fill();
 
 		// while(handsPos.x > 0 && handsPos.y > 0 && handsPos.x < Common.canvas.width && handsPos.y < Common.canvas.height) {
@@ -148,7 +169,7 @@ class Weapon extends Handler {
 	}
 
 	printPointer() {
-		if(this.isUsed()) {
+		if(this.isUsed() && Common.Sockets.enableAim) {
 			let mouse = Common.getMousePosition();
 			if(typeof mouse !== "undefined")
 			{
@@ -163,7 +184,7 @@ class Weapon extends Handler {
 	onDraw() {
 		super.draw();
 
-		if(this.isUnused()) img(this.img, this.getX(), this.getY() + this.getHeight());
+		if(this.isUnused()) img(this.img, this.getX() - Common.getScroll(), this.getY() + this.getHeight());
 
 		if(this.isUsed()) {
 			if(Common.updateFrame) this.rapidFire();

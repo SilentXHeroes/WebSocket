@@ -86,18 +86,30 @@ class Player extends Entity {
 	setEvents() {
 		if( ! this.currentPlayer) return;
 
-		document.addEventListener("keydown", e => this._playerEvents(e));
-		document.addEventListener("keyup", e => this._playerEvents(e));
-		document.addEventListener("click", e => this._playerEvents(e));
-		
+		["keydown", "keyup", "click", "mousedown", "mouseup", "mousemove"]
+		.forEach(type => {
+			document.addEventListener(type, e => this._playerEvents(e));
+		});
 	}
 
 	_playerEvents(e) {
 		if(e.type === "click") {
-			this.setWalking(false);
-			this.attack();
+			if(this.isArmed()) {
+				this.fire();
+			}
+			else {
+				this.attack();
+			}
 		}
-		if(e.keyCode === 32) {
+		else if(e.type === "mousedown" || e.type === "mouseup") {
+			this.setFire(e.type === "mousedown");
+		}
+		else if(e.type === "mousemove") {
+			if(Common.Sockets.enableAim) {
+				this.setAim();
+			}
+		}
+		else if(e.keyCode === 32) {
 			this.weapon.setFire(e.type === 'keydown');
 		}
 		else if(e.keyCode === 38 || e.keyCode === 90) {

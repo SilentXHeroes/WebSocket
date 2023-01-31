@@ -114,10 +114,16 @@ class Plateform extends Handler {
 		return this.bezierCurveCoordinates;
 	}
 
-	calcBezierCurveCoordinates(x, y) {		
-	    let [p0, p1, p2, p3] = this.bezierCurves[0];
-		let step = (x - p0[0]) / (p3[0] - p0[0]);
-		// console.log(step, '(', x ,'-', p0[0], ') / (', p3[0], '-', p0[0], ')');
+	calcBezierCurveCoordinates(playerX) {
+        let [p0, p1, p2, p3] = this.bezierCurves[0];
+		var A = p3[0] - 3*p2[0] + 3*p1[0] - p0[0],
+	        B = 3*p2[0] - 6*p1[0] + 3*p0[0],
+	        C = 3*p1[0] - 3*p0[0],
+	        D = p0[0] - playerX;
+
+	    var t = resolveCubicEquation(A, B, C, D);
+
+		// console.log(t, '(', x ,'-', p0[0], ') / (', p3[0], '-', p0[0], ')');
 	    let coords = [ 0, 0 ];
 	    for(let index in coords) {
 	    	//Calculate the coefficients based on where the ball currently is in the animation
@@ -126,20 +132,17 @@ class Plateform extends Handler {
 	    	let a = p3[index] - p0[index] - c - b;
 
 	    	//Calculate new X & Y positions of ball
-	    	coords[index] = a * Math.pow(step, 3) + b * Math.pow(step, 2) + c * step + p0[index];
+	    	coords[index] = a * Math.pow(t, 3) + b * Math.pow(t, 2) + c * t + p0[index];
 	    }
 
 	    //We draw the ball to the canvas in the new location
-	    return {
-	    	x: coords[0],
-	    	y: coords[1]
-	    };
+	    return { x: coords[0], y: coords[1] };
 	}
 
 	onDraw() {
 		super.draw();
 		
-		// this.printType();
+		this.printType();
 
 		// if(this.bezierCurveCoordinates) {
 		// 	begin();

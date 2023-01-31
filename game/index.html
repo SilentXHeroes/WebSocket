@@ -61,6 +61,7 @@
 			const Common = new _Common();
 		</script>
 		<!-- <script type="text/javascript" src="Member.js"></script> -->
+		<script type="text/javascript" src="helper.js"></script>
 		<script type="text/javascript" src="Handler.js"></script>
 		<script type="text/javascript" src="Entity.js"></script>
 		<script type="text/javascript" src="Entities.js"></script>
@@ -101,6 +102,7 @@
 			    { x: 225, y: 350 },
 			    { x: 350, y: 350 }
 			];
+			var ballValueT = null;
 
 			var elementOver = null;
 
@@ -115,6 +117,19 @@
 				});
 			});
 			Common.MouseMove.subscribe(() => {
+				var [a, b, c, d] = points;
+				a = a.x;
+				b = b.x;
+				c = c.x;
+				d = d.x;
+				var A = d - 3*c + 3*b - a,
+			        B = 3*c - 6*b + 3*a,
+			        C = 3*b - 3*a,
+			        D = a - Common.mouse.x;
+
+		        ball.t = resolveCubicEquation(A, B, C, D);
+				// console.log(A, B, C, D, Common.mouse.x, ballValueT);
+
 				if(Common.mouse.down === false || elementOver === null) return;
 
 		        elementOver.setSiblingsPlateforms(true);
@@ -136,7 +151,7 @@
 				bg("red");
 				circle(Common.mouse.x, Common.mouse.y, 10);
 				fill();
-				
+
 				// drawBall();
 			    // checkIfCursorInPoint();
 			    // if(pointToMove) movePoint();
@@ -157,17 +172,19 @@
 			});
 
 			function drawBall() {
-				if(Common.animateBall === true) {
-				    let t = ball.t;
+				// if(Common.animateBall === true) {
+				//     let t = ball.t;
 
-				    setBallCoords(t);
+				//     setBallCoords(t);
 
-				    //Increment t value by speed
-				    ball.t += ball.speed;
-				    if(ball.t > 1) {
-				    	ball.t = 1;
-				    }
-				}
+				//     //Increment t value by speed
+				//     ball.t += ball.speed;
+				//     if(ball.t > 1) {
+				//     	ball.t = 1;
+				//     }
+				// }
+
+			    setBallCoords(ball.t);
 
 			    begin();
 			    bg("black");
@@ -191,6 +208,8 @@
 			    //We draw the ball to the canvas in the new location
 			    ball.x = coords.x;
 			    ball.y = coords.y;
+
+			    return coords;
 			}
 
 			function movePoint() {

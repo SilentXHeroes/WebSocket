@@ -61,8 +61,10 @@ class Handler {
 		}
 
 		if(this.getHitBoxY() < 0) {
-			this.standing();
-			this.setXY(50, 100);
+			if(this.is("Player", "BadGuy")) {
+				this.standing();
+				this.setXY(50, 100);
+			}
 		}
 	}
 	setPosition(coords) {
@@ -123,9 +125,10 @@ class Handler {
 
 		if( ! this.is("Plateform")) {
 			let increaseHitbox = 5;
+			let isPlayerAttacking = this.is("Player", "BadGuy") && this.isAttacking();
 
 			let increaseWeaponHitboxX = 0;
-			if(this.isAttacking() && this.getFacing() === "left" && this.sprites.currentSpriteIndex > 7) {
+			if(isPlayerAttacking && this.getFacing() === "left" && this.sprites.currentSpriteIndex > 7) {
 				increaseWeaponHitboxX = 30;
 			}
 
@@ -133,7 +136,7 @@ class Handler {
 			this.hitbox.bottomLeft.X -= increaseHitbox + increaseWeaponHitboxX;
 
 			increaseWeaponHitboxX = 0;
-			if(this.isAttacking() && this.getFacing() === "right" && this.sprites.currentSpriteIndex > 7) {
+			if(isPlayerAttacking && this.getFacing() === "right" && this.sprites.currentSpriteIndex > 7) {
 				increaseWeaponHitboxX = 30;
 			}
 
@@ -143,7 +146,7 @@ class Handler {
 			let increaseWeaponHitboxY = 0;
 			if(this.is("Player")) {
 				increaseHitbox = 0;
-				if(this.isAttacking() && this.sprites.currentSpriteIndex > 7) {
+				if(isPlayerAttacking && this.sprites.currentSpriteIndex > 7) {
 					increaseWeaponHitboxY = 5;
 				}
 			}
@@ -273,6 +276,8 @@ class Handler {
 	}
 
 	collidesWith(...list) {
+		if(typeof this.hitbox === "undefined") return false;
+
 		let elements;
 
 		// Instance
@@ -297,53 +302,56 @@ class Handler {
 			elements = Common.getElementsOfConstructor(...list);
 		}
 
-		let selfCalled = typeof list[list.length - 1] === "boolean";
-		if(selfCalled) list.pop();
+		if(elements.length === 0) return false;
 
-		let collides = false;		
+		let selfCalled = list[list.length - 1] === true;
+		let collidingElement = false;
+
 		for(let i in elements) {
 			let element = elements[i];
 
 			if(typeof element === "undefined") continue;
 
-			element.updateHitBox();
+			if( ! element.hitbox) element.updateHitBox();
 
-			if( ! this.is("Bullet") &&
-				selfCalled === false && 
-				element.collidesWith(this, true)
+			// if( ! this.is("Bullet") &&
+			// 	selfCalled === false && 
+			// 	element.collidesWith(this, true)
+			// ) {
+			// 	collidingElement = element;
+			// 	break;
+			// }
+
+			let v = { x: 0, y: 0 };
+			let elementV = { x: 0, y: 0 };
+			// if(this.is("Player", "BadGuy", "Bullet")) {
+			// 	v = this.getVelocity();
+			// 	if()
+			// }
+			// if(element.is("Player", "BadGuy", "Bullet")) {
+			// 	elementV = element.getVelocity();
+			// }
+
+			if(
+				// Trop à gauche
+				this.hitbox.right + v.x < element.hitbox.left + elementV.x ||
+				// Trop à droite
+				this.hitbox.left + v.x > element.hitbox.right + elementV.x ||
+				// Trop haut
+				this.hitbox.bottom > element.hitbox.top ||
+				// Trop bas
+				this.hitbox.top < element.hitbox.bottom
 			) {
-				collides = element;
-				break;
+				continue;
 			}
 
-			// On vérifie si un des coins de la hitbox est compris dans ceux de l'élément
-			for(let j in this.hitbox) {
-				let hb = this.hitbox[j];
-
-				//	(0)-------(3)
-				//   |		   |
-				//	 |		   |
-				//	 |		   |
-				//	(1)-------(2)
-				if(
-					// X
-					hb.X >= element.hitbox.topLeft.X &&
-					hb.X <= element.hitbox.topRight.X &&
-					// Y
-					hb.Y <= element.hitbox.topLeft.Y &&
-					hb.Y >= element.hitbox.bottomLeft.Y
-				) {
-					collides = element;
-					break;
-				}
-			}
-
-			if(collides) break;
+			collidingElement = element;
+			break;
 		}
 
 		this.log = false;
 
-		return collides;
+		return collidingElement;
 	}
 
 	getOtherPlayers() {
