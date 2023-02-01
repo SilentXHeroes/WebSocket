@@ -64,11 +64,18 @@ class Plateform extends Handler {
 			}
 		}
 
-		this.setColor('lightgreen');
+		this.setDefaultColor('lightgreen');
 	}
 
 	setColor(color) {
 		this.color = color;
+	}
+	setDefaultColor(color) {
+		this.default_color = color;
+		this.setColor(color);
+	}
+	resetDefaultColor() {
+		this.setColor(this.default_color);
 	}
 
 	isGround() {

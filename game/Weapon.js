@@ -127,7 +127,7 @@ class Weapon extends Handler {
 	printAim() {
 		if(this.isUnused() || typeof this.getAim() === "undefined" || Common.Sockets.enableAim === false) return;
 
-		Common.getElementsOfConstructor('Plateform').forEach(x => x.setColor('lightgreen'));
+		// Common.getElementsOfConstructor('Plateform').forEach(x => x.setColor('lightgreen'));
 
 		let handsPos = this.getCarrier().getHandsPos();
 		let aim = this.getAim();
@@ -144,6 +144,58 @@ class Weapon extends Handler {
 		bg('red');
 		circle(aim.mouse.x, aim.mouse.y, 7);
 		fill();
+
+		let step = this.getAim().step;
+		let maxPathX = this.getAim().fy(step.y >= 0 ? Common.canvas.height : 0);
+		let plateforms = Common
+			.getElementsOfConstructor("Plateform")
+			.filter(plateform => {
+				// plateform.setColor("lightgreen");
+
+				let firstHitboxX = step.x > 0 ? plateform.getX() : plateform.getHitBoxX();
+				let secondHitboxX = step.x > 0 ? plateform.getHitBoxX() : plateform.getX();
+				return (
+						// Plateforme à droite si tire à gauche
+						(step.x >= 0 && plateform.getHitBoxX() < this.getCarrier().getHitBoxX()) ||
+						// Plateforme à gauche si tire à droite
+						(step.x < 0 && plateform.getX() > this.getCarrier().getX()) ||
+						// Plateforme trop basse si tire vers le haut
+						(step.y >= 0 && plateform.getHitBoxY() < this.getCarrier().getHitBoxY()) ||
+						// Plateforme trop haute si tire vers le bas
+						(step.y < 0 && plateform.getY() > this.getCarrier().getHitBoxY()) ||
+						// Plateforme trop à droite si tire à droite et valeur max atteinte à droite
+						(step.x >= 0 && plateform.getX() > maxPathX) ||
+						// Plateforme trop à gauche si tire à gauche et valeur max atteinte à gauche
+						(step.x < 0 && plateform.getHitBoxX() < maxPathX)
+					) === false
+					&&
+					(
+						(plateform.getX() <= this.getAim().fy(plateform.getY()) && plateform.getHitBoxX() >= this.getAim().fy(plateform.getY())) ||
+						//// Plateforme trop à droite si tire à droite et valeur max atteinte à droite
+						(plateform.getY() <= this.getAim().fx(firstHitboxX) && plateform.getHitBoxY() >= this.getAim().fx(firstHitboxX)) ||
+						//
+						(plateform.getY() <= this.getAim().fx(secondHitboxX) && plateform.getHitBoxY() >= this.getAim().fx(secondHitboxX))
+					);
+			});
+
+		plateforms.forEach(plateform => {
+			// plateform.setColor("red");
+			let xA = this.getAim().fy(plateform.getY());
+			let yA = this.getAim().fx(plateform.getX());
+			let xB = this.getAim().fy(plateform.getHitBoxY());
+			let yB = this.getAim().fx(plateform.getHitBoxX());
+
+			let firstHitbox = step.x > 0 ? plateform.getY() : plateform.getHitBoxY();
+			let secondHitbox = step.x > 0 ? plateform.getHitBoxY() : plateform.getY();
+
+			bg("blue");
+			if(yA >= plateform.getY() && yA <= plateform.getHitBoxY()) { begin(); circle(plateform.getX(), yA, 5); fill(); }
+			if(yB >= plateform.getY() && yB <= plateform.getHitBoxY()) { begin(); circle(plateform.getHitBoxX(), yB, 5); fill(); }
+			if(xA >= plateform.getX() && xA <= plateform.getHitBoxX()) { begin(); circle(xA, plateform.getY(), 5); fill(); }
+			if(xB >= plateform.getX() && xB <= plateform.getHitBoxX()) { begin(); circle(xB, plateform.getHitBoxY(), 5); fill(); }
+			// if((yA < firstHitbox && yB > secondHitbox) || (yA >= firstHitbox && yB <= secondHitbox)) {
+			// }
+		});
 
 		// while(handsPos.x > 0 && handsPos.y > 0 && handsPos.x < Common.canvas.width && handsPos.y < Common.canvas.height) {
 		// 	let plateforms = Common.getElementsOfConstructor('Plateform','BadGuy');
