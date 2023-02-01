@@ -48,10 +48,7 @@ function getLineEquation(...args) {
 		return null;
 	}
 
-	let diff = {
-		x: pB.x - pA.x,
-		y: pB.y - pA.y
-	};
+	let distance = getDistanceBetweenPoints(pA, pB);
 
 	// m = By - Ay / Bx - Ax
 	let m = (pB.y - pA.y) / (pB.x - pA.x);
@@ -61,12 +58,24 @@ function getLineEquation(...args) {
 		m: m,
 		p: p,
 		// Ecart entre l'abscisse et l'ordonnée
-		diff: diff,
+		diff: distance.diff,
 		// Longueur de la ligne, utilisation de Pythagore (racine de la somme des côtés au carré)
-		length: Math.sqrt(Math.pow(diff.x, 2) + Math.pow(diff.y, 2)),
+		length: distance.length,
 		// Retourne la coordonnée Y avec l'abscisse X
 		Fx: x => m * x + p,
 		// Retourne la coordonnée X avec l'ordonnée Y
 		Fy: y => (y - p) / m
+	};
+}
+
+// Retourne la différence des axes ainsi que la distance entre 2 points
+function getDistanceBetweenPoints(pA, pB) {
+	let diff = {
+		x: pB.x - pA.x,
+		y: pB.y - pA.y
+	};
+	return {
+		diff: diff,
+		length: Math.sqrt(Math.pow(diff.x, 2) + Math.pow(diff.y, 2))
 	};
 }

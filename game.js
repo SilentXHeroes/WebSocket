@@ -2,7 +2,7 @@ var express = require('express');
 var app = express();
 var http = require('http').createServer(app);
 var io = require('socket.io')(http);
-var wsPort = 8081;
+var wsPort = 8083;
 var players = {};
 let plateforms = [];
 
