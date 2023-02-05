@@ -45,28 +45,6 @@ class Entity extends Handler {
 
 	onLoad() {
 		this.setMaxValues();
-
-		// if(this.is("Player")) this.setUniqueID(this.getId());
-		// var thos = this;
-		// setTimeout(function() {
-		// 	let entity = Common.getElementById(thos.getUniqueID());
-		// 	thos.members = {
-		// 		0: new Member(entity, "arm.left"),
-		// 		1: new Member(entity, "leg.left"),
-		// 		2: new Member(entity, "body"),
-		// 		3: new Member(entity, "head"),
-		// 		4: new Member(entity, "leg.right"),
-		// 		5: new Member(entity, "arm.right")
-		// 	};
-		// 	thos.members.arm = {
-		// 		left: thos.members[0],
-		// 		right: thos.members[5],
-		// 	};
-		// 	thos.members.leg = {
-		// 		left: thos.members[1],
-		// 		right: thos.members[4],
-		// 	};
-		// });
 	}
 
 	setMaxValues() {
@@ -100,9 +78,8 @@ class Entity extends Handler {
 		plateforms.forEach(plateform => {
 			// On ignore les plateformes
 			if(
-				// Plateforme utilisée
-				plateform.type === "current" ||
-				plateform.type === "ground" ||
+				this.isCurrentPlateform(plateform) ||
+				plateform.isGround() ||
 				// Plateforme trop haute
 				(plateform.getHitBoxY() > this.getY() + this.maxJumpHeight) ||
 				// Plateforme trop basse
@@ -210,6 +187,8 @@ class Entity extends Handler {
 		if(force === false && (this.isFalling() || this.isJumping() || this.walking || this.isHurt()) === false) return;
 
 		this.siblingsPlateforms = this.getSiblingsElements("Plateform");
+		this.plateformBelow = null;
+		this.plateformAbove = null;
 
 		for(var i in this.siblingsPlateforms) {
 			let plateform = this.siblingsPlateforms[i];
@@ -217,7 +196,7 @@ class Entity extends Handler {
 			// Prochaine position X
 			let nextStep = this.speed * this.getFacingOperator();
 			// Prochaine position Y
-			let nextVelocity = this.getVelocity() - this.velocity.jump;
+			let nextVelocity = this.getVelocity() === 0 ? 0 : this.getVelocity() - this.velocity.jump;
 
 			let playerX = this.getX();
 			let playerNextX = playerX + nextStep;
@@ -226,77 +205,90 @@ class Entity extends Handler {
 			let playerHBX = this.getHitBoxX();
 			let playerNextHBX = playerHBX + nextStep;
 			let playerHY = this.getHitBoxY();
+			let playerNextHBY = playerHY + nextVelocity;
 
 			let plateformX = plateform.getX();
 			let plateformY = plateform.getY();
 			let plateformHBX = plateform.getHitBoxX();
 			let plateformHBY = plateform.getHitBoxY();
 
-			plateform.clearBezierCurveCoordinates();
-			if(plateform.hasBezierCurves()) {
-				console.log(playerY, '>', plateformY);
-				if(playerY > plateformY) {
-					console.log(plateform.isHill(), "&&", playerNextHBX, '>=', plateformX, "&&", playerNextHBX, '<=', plateformHBX);
+			plateform.clearPath();
+			plateform.clearReferrer();
+			if(plateform.hasBezierCurves() || plateform.hasCurves() || plateform.hasLines()) {
+				// console.log(playerNextY, '>=', plateformY, '&&', playerNextY, '<=', plateformHBY);
+				// L'élément sera dans la plateforme
+				// console.log(playerNextY, plateformY, plateformHBY);
+				if(this.isCurrentPlateform(plateform) || (playerNextY >= plateformY && playerNextY <= plateformHBY)) {
+					plateform.setReferrer(this);
+
+					if(plateform.isHill() || plateform.isDescent()) {
+						plateform.setPath();
+						plateformHBY = plateform.getPath().y;
+					}
+
+					// Si 2 plateformes sont côte à côte
+					// On attend que l'élément soit bien sur la nouvelle plateforme, étant donné qu'on calcule avec sa position future
 					if(
-						(plateform.isHill() && playerNextHBX >= plateformX && playerNextHBX <= plateformHBX) ||
-						(plateform.isDescent() && playerNextX >= plateformX && playerNextX <= plateformHBX)
+						this.isCurrentPlateform(plateform) === false &&
+						plateform.hasPath() &&
+						this.isOnGround() &&
+						this.walkingOnPlateform(plateform)
 					) {
-						let coordinates = plateform.calcBezierCurveCoordinates(plateform.isHill() ? playerNextHBX : playerNextX);
-						plateform.setBezierCurveCoordinates(coordinates);
-						plateformHBY = coordinates.y;
-						// Si 2 plateformes sont côte à côte
-						// On attend que l'élément soit bien sur la nouvelle plateforme, étant donné qu'on calcule avec sa position future
-						if(this.isOnGround() && this.walkingOnPlateform(plateform)) this.setCurrentPlateform(plateform);
+						// console.log("PATH", plateform.getPath());
+						this.setCurrentPlateform(plateform);
 					}
 				}
+// console.log("PATH", plateform.getPath());
 			}
 
 			if(this.isCurrentPlateform(plateform)) {
 				plateform.type = "current";
+				continue;
 			}
+
 			// Plateforme proche du joueur
-			else if(playerNextX <= plateformHBX && playerNextHBX >= plateformX) {
-				// Se trouve sur la plateforme
-				if(
-					playerY >= plateformHBY && 
-					playerNextY <= plateformHBY
-				) {
-					plateform.type = "ground";
+			if(playerNextX > plateformHBX || playerNextHBX < plateformX) {
+				continue;
+			}
+// console.log(plateform.getPath(), this.getVelocity());
+			// Se trouve dans la hauteur de la plateforme
+			// Potentiellement un mur
+			if(
+				plateform.hasPath() === false &&
+				playerNextY < plateformHBY && 
+				playerNextHBY > plateformY &&
+				(
+					(playerX < plateformX && playerHBX < plateformX) ||
+					(playerX > plateformHBX && playerHBX > plateformHBX)
+				)
+				// (
+				// 	(playerNextHBX > plateformX && playerNextX < plateformX) || 
+				// 	(playerNextHBX > plateformHBX && playerNextX < plateformHBX)
+				// )
+				
+			) {
+				// console.log('Y', playerNextY, 'HBY', playerNextHBY, 'P Y', plateformY, 'P HBY', plateformHBY);
+				// console.log(plateform);
+				plateform.type = "wall";
+			}
+			// Se trouve sur la plateforme
+			else if(playerNextY >= plateformY) {
+				// Plusieurs plateforms en dessous, on prend la plus proche
+				if(this.plateformBelow === null || playerY - plateformHBY < playerY - this.plateformBelow.getHitBoxY()) {
+					this.plateformBelow = plateform;
 				}
-				// Se trouve sous la plateforme
-				else if(
-					playerHY <= plateformY && 
-					playerHY + nextVelocity >= plateformY
-				) {
-					plateform.type = "ceil";
-				}
-				// Se trouve dans la hauteur de la plateforme
-				// Potentiellement un mur
-				else if(
-					playerNextY < plateformHBY && 
-					playerHY + nextVelocity > plateformY &&
-					plateform.bezierCurveCoordinates === null
-				) {
-					if(
-						// Se déplace vers la gauche
-						(
-							this.getFacing() === "left" && 
-							playerNextX <= plateformHBX && 
-							playerNextHBX > plateformHBX
-						) ||
-						// Se déplace vers la droite
-						(
-							this.getFacing() === "right" && 
-							playerNextHBX >= plateformX && 
-							playerNextX < plateformHBX
-						)
-					) {
-						console.log(plateform);
-						plateform.type = "wall";
-					}
+			}
+			// Se trouve sous la plateforme
+			else if(playerNextHBY < plateformHBY) {
+				// Plusieurs plateforms au dessus, on prend la plus proche
+				if(this.plateformAbove === null || plateformY - playerY < this.plateformAbove.getY() - playerY) {
+					this.plateformAbove = plateform;
 				}
 			}
 		}
+
+		if(this.plateformBelow !== null) this.plateformBelow.type = "ground";
+		if(this.plateformAbove !== null) this.plateformAbove.type = "ceil";
 	}
 
 	setSpeed(speed) {
@@ -609,19 +601,20 @@ class Entity extends Handler {
 		else if(this.walking) {
 			distance = this.speed * this.getFacingOperator();
 		}
-
+		
 		if(this.onHitWall() || distance === null) {
 			return;
 		}
 
 		x += distance;
 
-
 		let plateform = this.getCurrentPlateform();
-		if(typeof plateform !== "undefined" && plateform.bezierCurveCoordinates) {
-			y = plateform.getBezierCurveCoordinates().y;
+		if(typeof plateform !== "undefined" && plateform.hasPath()) {
+			// console.log("PATH", plateform.getPath());
+			y = plateform.getPath().y;
 		}
 
+		this.setAim();
 		this.setXY(x, y);
 	}
 
@@ -667,8 +660,9 @@ class Entity extends Handler {
 				this.setCurrentPlateform(plateform);
 
 				let y;
-				if(plateform.bezierCurveCoordinates) {
-					y = plateform.getBezierCurveCoordinates().y;
+				if(plateform.hasPath()) {
+					// console.log("PATH", plateform.getPath());
+					y = plateform.getPath().y;
 				}
 				else {
 					y = plateform.getHitBoxY();
@@ -682,12 +676,12 @@ class Entity extends Handler {
 
 	// Outch la tête ...
 	hitCeil(plateform) {
-		return this.getVelocity() > 0 && plateform.isCeil();
+		return this.getVelocity() > 0 && plateform.isCeil() && this.getHitBoxY() > plateform.getY();
 	}
 
 	// Plateforme sous nos pieds ?
 	hitFloor(plateform) {
-		return this.getVelocity() < 0 && plateform.isGround();
+		return plateform.isGround() && this.getVelocity() < 0 && this.getY() < (plateform.hasPath() ? plateform.getPath().y : plateform.getHitBoxY());
 	}
 
 	walkingOnPlateform(plateform) {
@@ -707,7 +701,9 @@ class Entity extends Handler {
 		for(var i in this.siblingsPlateforms) {
 			var plateform = this.siblingsPlateforms[i];
 
+			// if((this.isCurrentPlateform(plateform) === false || plateform.isWall() === false) && plateform.isWall()) {
 			if( ! this.isCurrentPlateform(plateform) && plateform.isWall()) {
+				// console.log("WALL", plateform);
 				if(this.is("BadGuy")) {
 					if(this.isOnGround()) this.walk(false, this.getFacing());
 				}
@@ -769,7 +765,11 @@ class Entity extends Handler {
 		font(15, 'Comic Sans MS');
 		bg('black');
 		align('center');
-		text(this.name, this.getX() + (this.getWidth() / 2), this.getHitBoxY() + 10);
+		text(this.getName(), this.getX() + (this.getWidth() / 2), this.getHitBoxY() + 10);
+	}
+
+	getName() {
+		return this.name;
 	}
 
 	printCurrentSprite() {
@@ -783,10 +783,12 @@ class Entity extends Handler {
 		let imageY = this.getY() + this.spriteH - 5;
 		let plateform = this.getCurrentPlateform();
 
-		// if(this.isOnGround() && plateform.bezierCurveCoordinates) {
+		// if(this.getFacing() === "left") imageX += 5;
+
+		// if(this.isOnGround() && plateform.hasPath()) {
 		// 	begin();
 		// 	bg("red");
-		// 	circle(plateform.bezierCurveCoordinates.x, plateform.bezierCurveCoordinates.y, 5);
+		// 	circle(plateform.getPath().x, plateform.getPath().y, 5);
 		// 	fill();
 		// }
 
@@ -806,6 +808,27 @@ class Entity extends Handler {
 		);
 
 		if(this.is("BadGuy")) filter("none");
+
+		// begin();
+		// bg("blue");
+		// circle(this.getX(), this.getY(), 5);
+		// fill();
+		// begin();
+		// bg("violet");
+		// circle(imageX, imageY, 5);
+		// fill();
+		// begin();
+		// bg("violet");
+		// circle(imageX + this.spriteW, imageY - this.spriteH, 5);
+		// fill();
+		// begin();
+		// bg("violet");
+		// circle(imageX, imageY - this.spriteH, 5);
+		// fill();
+		// begin();
+		// bg("violet");
+		// circle(imageX + this.spriteW, imageY, 5);
+		// fill();
 	}
 
 	updateCurrentSprite() {		

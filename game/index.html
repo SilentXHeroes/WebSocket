@@ -27,6 +27,12 @@
 				/*cursor: none;*/
 				flex: 1;
 			}
+			canvas.grab {
+				cursor: grab;
+			}
+			canvas.grabbing {
+				cursor: grabbing;
+			}
 			/*
 			#container {
 				display: none;
@@ -89,7 +95,7 @@
 
 				let player = Common.newElement('Player', infos, true);
 
-				Common.socket.emit("player-connect", player);
+				Common.socket.emit("player-connect", player.getDataObject());
 			});
 
 			var posRadius = 7;
@@ -106,51 +112,51 @@
 
 			var elementOver = null;
 
-			Common.MouseDown.subscribe(() => {
-				if(elementOver !== null) return;
-				Common.getElementsOfConstructor("Player", "BadGuy").forEach(element => {
-				    if(element.isMouseOver()) {
-				        element.setCurrentPlateform(false);
-				        element.velocity.ignored = true;
-				    	elementOver = element;
-				    }
-				});
-			});
-			Common.MouseMove.subscribe(() => {
-				var [a, b, c, d] = points;
-				a = a.x;
-				b = b.x;
-				c = c.x;
-				d = d.x;
-				var A = d - 3*c + 3*b - a,
-			        B = 3*c - 6*b + 3*a,
-			        C = 3*b - 3*a,
-			        D = a - Common.mouse.x;
+			// Common.MouseDown.subscribe(() => {
+			// 	if(elementOver !== null) return;
+			// 	Common.getElementsOfConstructor("Player", "BadGuy").forEach(element => {
+			// 	    if(element.isMouseOver()) {
+			// 	        element.setCurrentPlateform(false);
+			// 	        element.velocity.ignored = true;
+			// 	    	elementOver = element;
+			// 	    }
+			// 	});
+			// });
+			// Common.MouseMove.subscribe(() => {
+			// 	var [a, b, c, d] = points;
+			// 	a = a.x;
+			// 	b = b.x;
+			// 	c = c.x;
+			// 	d = d.x;
+			// 	var A = d - 3*c + 3*b - a,
+			//         B = 3*c - 6*b + 3*a,
+			//         C = 3*b - 3*a,
+			//         D = a - Common.mouse.x;
 
-		        ball.t = resolveCubicEquation(A, B, C, D);
-				// console.log(A, B, C, D, Common.mouse.x, ballValueT);
+		    //     ball.t = resolveCubicEquation(A, B, C, D);
+			// 	// console.log(A, B, C, D, Common.mouse.x, ballValueT);
 
-				if(Common.mouse.down === false || elementOver === null) return;
+			// 	if(Common.mouse.down === false || elementOver === null) return;
 
-		        elementOver.setSiblingsPlateforms(true);
-		        elementOver.setPosition({
-		            x: Common.mouse.x - (elementOver.getWidth() / 2),
-		            y: Common.mouse.y - (elementOver.getHeight() / 2)
-		        });
-			});
-			Common.MouseUp.subscribe(() => {
-			    if(elementOver !== null) {
-			        elementOver.velocity.ignored = false;
-			        elementOver.isFalling();
-			    	elementOver = null;
-			    }
-			});
+		    //     elementOver.setSiblingsPlateforms(true);
+		    //     elementOver.setPosition({
+		    //         x: Common.mouse.x - (elementOver.getWidth() / 2),
+		    //         y: Common.mouse.y - (elementOver.getHeight() / 2)
+		    //     });
+			// });
+			// Common.MouseUp.subscribe(() => {
+			//     if(elementOver !== null) {
+			//         elementOver.velocity.ignored = false;
+			//         elementOver.isFalling();
+			//     	elementOver = null;
+			//     }
+			// });
 
-			Common.Draw.subscribe(() => {
-				begin();
-				bg("red");
-				circle(Common.mouse.x, Common.mouse.y, 10);
-				fill();
+			// Common.Draw.subscribe(() => {
+				// begin();
+				// bg("red");
+				// circle(Common.mouse.x, Common.mouse.y, 10);
+				// fill();
 
 				// drawBall();
 			    // checkIfCursorInPoint();
@@ -158,7 +164,7 @@
 			    // drawLine();
 			    // //Points will be above everything else
 			    // drawPoints();
-			});
+			// });
 
 			canvas.addEventListener("mousedown", () => {
 			    isClickDown = true;

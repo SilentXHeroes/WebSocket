@@ -19,6 +19,8 @@ class _Common {
 		this.calculatedFpsRatio = false;
 		this.frames = {};
 		this.fps = 0;
+		this.scale = 1;
+		this.origin = { X: 0, Y: 0, tmp: { X: 0, Y: 0 } };
 
 		this.mouse = {
 			x: 0,
@@ -28,6 +30,45 @@ class _Common {
 			down: false,
 			up: true,
 			move: false,
+			deltaX: null,
+			deltaY: null,
+			originX: null,
+			originY: null,
+			isGrabbing: function() {
+				return Common.mouse.down && Common.mouse.move;
+			},
+			cursor: {
+				grab: function() {
+					if(Common.mouse.cursor.hasGrab() === false) {
+						Common.canvas.node.classList.add("grab");
+					}
+				},
+				ungrab: function() {
+					if(Common.mouse.cursor.hasGrab()) {
+						Common.canvas.node.classList.remove("grab");
+					}
+				},
+				grabbing: function() {
+					if(Common.mouse.cursor.hasGrabbing() === false) {
+						Common.canvas.node.classList.add("grabbing");
+					}
+				},
+				ungrabbing: function() {
+					if(Common.mouse.cursor.hasGrabbing()) {
+						Common.canvas.node.classList.remove("grabbing");
+					}
+				},
+				default: function() {
+					Common.mouse.cursor.ungrab();
+					Common.mouse.cursor.ungrabbing();
+				},
+				hasGrab: function() {
+					return Common.canvas.node.classList.contains("grab");
+				},
+				hasGrabbing: function() {
+					return Common.canvas.node.classList.contains("grabbing");
+				},
+			},
 			e: {
 				mousemove: null,
 				mousedown: null,
@@ -52,6 +93,7 @@ class _Common {
 		this.MouseMove = this.subscriber();
 		this.MouseUp = this.subscriber();
 		this.MouseClick = this.subscriber();
+		this.MouseWheel = this.subscriber();
 		this.Draw = this.subscriber();
 		
 		this.setFrameRate(60);
@@ -68,6 +110,15 @@ class _Common {
 				this.mouse.down = true;
 				this.mouse.up = false;
 
+				if(this.mouse.originX === null) {
+					this.mouse.originX = e.clientX;
+					this.mouse.originY = e.clientY;
+					this.origin.tmp.X = this.origin.X;
+					this.origin.tmp.Y = this.origin.Y;
+				}
+
+				if(Common.mouse.cursor.hasGrab()) Common.mouse.cursor.grabbing();
+
 				this.updateMouseEvent(e);
 				this.MouseDown.execute();
 			},
@@ -76,6 +127,13 @@ class _Common {
 
 				clearTimeout(this.mouse.timeoutMoving);
 				this.mouse.move = true;
+
+				if(Common.canvas.node.classList.contains("grabbing")) {
+					this.mouse.deltaX = this.mouse.originX - e.clientX;
+					this.mouse.deltaY = this.mouse.originY - e.clientY;
+					this.origin.X = this.origin.tmp.X - this.mouse.deltaX;
+					this.origin.Y = this.origin.tmp.Y - this.mouse.deltaY;
+				}
 
 				this.updateMouseEvent(e);
 				this.MouseMove.execute();
@@ -89,8 +147,50 @@ class _Common {
 				this.mouse.up = true;
 				this.mouse.down = false;
 
+				this.mouse.originX = null;
+				this.mouse.originY = null;
+				this.mouse.deltaX = null;
+				this.mouse.deltaY = null;
+
+				if(Common.mouse.cursor.hasGrab()) {
+					Common.mouse.cursor.ungrabbing();
+				}
+
 				this.updateMouseEvent(e);
 				this.MouseUp.execute();
+			},
+			mousewheel: e => {
+				e.preventDefault();
+
+				let delta = e.wheelDelta < 0 ? - 1 : 1;
+				// let diffY = (this.mouse.y > Common.canvas.height / 2 ? this.mouse.y - Common.canvas.height / 2 : this.mouse.y - Common.canvas.height / 2);
+				let diffY = (this.mouse.y - Common.canvas.height / 4) - Common.canvas.height / 4;
+				let toTop = diffY >= 0;
+				let toBottom = diffY < 0;
+				// diffY = diffY / 2 + Common.canvas.height / 2;
+				console.log(this.mouse.y, Common.canvas.height / 4, diffY);
+				this.scale += 0.05 * delta;
+				this.origin.X -= this.mouse.x * 0.05 * delta;
+				console.log("BEFORE:", this.origin.Y);
+				if(toTop) {
+					this.origin.Y -= diffY * 0.05 * delta;
+				}
+				else {
+					this.origin.Y += diffY * 0.05 * delta;
+				}
+				console.log("AFTER:", this.origin.Y);
+
+				this.MouseWheel.execute();
+			},
+			keydown: e => {
+				if(e.code === "Space") {
+					Common.mouse.cursor.grab();
+				}
+			},
+			keyup: e => {
+				if(e.code === "Space") {
+					Common.mouse.cursor.default();
+				}
 			}
 		};
 
@@ -104,6 +204,9 @@ class _Common {
 		canvas.addEventListener('mousemove', this.events.mouseMove);
 		canvas.addEventListener('mouseup', this.events.mouseUp);
 		canvas.addEventListener('click', this.events.mouseClick);
+		canvas.addEventListener("mousewheel", this.events.mousewheel)
+		document.addEventListener("keydown", this.events.keydown)
+		document.addEventListener("keyup", this.events.keyup)
 	}
 
 	subscriber(event, fn) {
@@ -184,8 +287,8 @@ class _Common {
 		return this.scrollOnX;
 	}
 	updateScroll() {
-		if(Common.current) {
-			let diff = (Common.current.getX() + Common.current.getHalfWidth()) - (this.canvas.width / 2);
+		if(this.current && this.current.velocity.ignored === false) {
+			let diff = (this.current.getX() + this.current.getHalfWidth()) - (this.canvas.width / 2);
 			this.isScrolling(diff > 0);
 			if(this.isScrolling()) {
 				this.scrollX = diff;
@@ -241,6 +344,7 @@ class _Common {
 			Common.buildFromSocket = true;
 			switch(data.action) {
 				case "build": 
+					console.log(data);
 					Common.startGame(data.plateforms);
 					for(var i in data.players) {
 						Common.newElement('Player', data.players[i]);
@@ -331,13 +435,13 @@ class _Common {
 			}
 			else {
 				// Coordonnée X
-				args.push(this.calcX(plateform.x));
+				args.push(this.prctX(plateform.x));
 				// Coordonnée Y
-				args.push(this.calcY(plateform.y));
+				args.push(this.prctY(plateform.y));
 				// Largeur
-				args.push(this.calcX(plateform.width));
+				args.push(this.prctX(plateform.width));
 				// Hauteur
-				args.push(this.calcY(plateform.height));
+				args.push(this.prctY(plateform.height));
 			}
 			this.newElement(...args);
 		});
@@ -346,10 +450,18 @@ class _Common {
 	}
 
 	calcX(value) {
-		return this.calc(value, Common.canvas.width);
+		return Common.origin.X + (value - Common.getScroll()) * Common.scale;
 	}
 
 	calcY(value) {
+		return Common.origin.Y + value * Common.scale;
+	}
+
+	prctX(value) {
+		return this.calc(value, Common.canvas.width);
+	}
+
+	prctY(value) {
 		return this.calc(value, Common.canvas.height);
 	}
 
@@ -369,6 +481,11 @@ class _Common {
 
 	frame() {
 		clear();
+		Common.mouse.cursor.default();
+
+		if(Common.mouse.down) {
+			Common.mouse.cursor.grabbing();
+		}
 
 		if(Common.calculatedFpsRatio === false) {
 			Common.calculateFrameRate();

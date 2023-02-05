@@ -259,6 +259,7 @@ class Handler {
 	}
 
 	isMouseOver() {
+		if( ! this.hitbox) return;
 		// this.updateHitBox();
 
 		//	(0)-------(3)
@@ -268,11 +269,11 @@ class Handler {
 		//	(1)-------(2)
 
 			   // X
-		return Common.mouse.x >= this.hitbox.topLeft.X &&
-			   Common.mouse.x <= this.hitbox.topRight.X &&
+		return Common.mouse.x > this.hitbox.topLeft.X &&
+			   Common.mouse.x < this.hitbox.topRight.X &&
 			   // Y
-			   Common.mouse.y <= this.hitbox.topLeft.Y &&
-			   Common.mouse.y >= this.hitbox.bottomLeft.Y;
+			   Common.mouse.y < this.hitbox.topLeft.Y &&
+			   Common.mouse.y > this.hitbox.bottomLeft.Y;
 	}
 
 	collidesWith(...list) {
@@ -354,6 +355,94 @@ class Handler {
 		return collidingElement;
 	}
 
+	collidesPlateform(path, shooter) {
+		let data = { impacts: [], hitAt: null, distance: null };
+		let step = path.step;
+		let maxPathX = path.fy(step.y >= 0 ? Common.canvas.height : 0);
+		let plateforms = Common.getElementsOfConstructor("Plateform");
+		
+		plateforms.forEach(plateform => {
+			let firstHitboxX = step.x > 0 ? plateform.getX() : plateform.getHitBoxX();
+			let secondHitboxX = step.x > 0 ? plateform.getHitBoxX() : plateform.getX();
+
+			if(Common.EnableLogs) {
+				// Plateforme à droite si tire à gauche
+				console.log(
+					step.x >= 0 && plateform.getHitBoxX() < shooter.getHitBoxX(),
+					// Plateforme à gauche si tire à droite
+					step.x < 0 && plateform.getX() > shooter.getX(),
+					// Plateforme trop basse si tire vers le haut
+					step.y >= 0 && plateform.getHitBoxY() < shooter.getHitBoxY(),
+					// Plateforme trop haute si tire vers le bas
+					step.y, plateform.getY(), shooter.getHitBoxY(), step.y < 0 && plateform.getY() > shooter.getHitBoxY(),
+					// Plateforme trop à droite si tire à droite et valeur max atteinte à droite
+					step.x, plateform.getX(), maxPathX, step.x >= 0 && plateform.getX() > maxPathX,
+					// Plateforme trop à gauche si tire à gauche et valeur max atteinte à gauche
+					step.x < 0 && plateform.getHitBoxX() < maxPathX,
+					"&&",
+					plateform.getX(),'<=',path.fy(plateform.getY()),'&&',plateform.getHitBoxX(), '>=', path.fy(plateform.getY()),
+					plateform.getX() <= path.fy(plateform.getY()) && plateform.getHitBoxX() >= path.fy(plateform.getY()),
+					//// Plateforme trop à droite si tire à droite et valeur max atteinte à droite
+					plateform.getY() <= path.fx(firstHitboxX) && plateform.getHitBoxY() >= path.fx(firstHitboxX),
+					plateform.getY() <= path.fx(secondHitboxX) && plateform.getHitBoxY() >= path.fx(secondHitboxX)
+				);
+			}
+
+			if(
+				// Plateforme à droite si tire à gauche
+				(step.x >= 0 && plateform.getHitBoxX() < shooter.getHitBoxX()) ||
+				// Plateforme à gauche si tire à droite
+				(step.x < 0 && plateform.getX() > shooter.getX()) ||
+				// Plateforme trop basse si tire vers le haut
+				(step.y >= 0 && plateform.getHitBoxY() < shooter.getHitBoxY()) ||
+				// Plateforme trop haute si tire vers le bas
+				(step.y < 0 && plateform.getY() > shooter.getHitBoxY()) ||
+				// Plateforme trop à droite si tire à droite et valeur max atteinte à droite
+				(step.x >= 0 && plateform.getX() > maxPathX) ||
+				// Plateforme trop à gauche si tire à gauche et valeur max atteinte à gauche
+				(step.x < 0 && plateform.getHitBoxX() < maxPathX)
+			) {
+				return;
+			}
+
+			if(
+				//
+				(plateform.getX() <= path.fy(plateform.getY()) && plateform.getHitBoxX() >= path.fy(plateform.getY())) ||
+				// Plateforme trop à droite si tire à droite et valeur max atteinte à droite
+				(plateform.getY() <= path.fx(firstHitboxX) && plateform.getHitBoxY() >= path.fx(firstHitboxX)) ||
+				//
+				(plateform.getY() <= path.fx(secondHitboxX) && plateform.getHitBoxY() >= path.fx(secondHitboxX))
+			) {
+				let xA = path.fy(plateform.getY());
+				let yA = path.fx(plateform.getX());
+				let xB = path.fy(plateform.getHitBoxY());
+				let yB = path.fx(plateform.getHitBoxX());
+
+				let hitLeft = path.step.x >= 0 && yA >= plateform.getY() && yA <= plateform.getHitBoxY();
+				let hitRight = path.step.x < 0 && yB >= plateform.getY() && yB <= plateform.getHitBoxY();
+				let hitBottom = path.step.y >= 0 && xA >= plateform.getX() && xA <= plateform.getHitBoxX();
+				let hitTop = path.step.y < 0 && xB >= plateform.getX() && xB <= plateform.getHitBoxX();
+				let hitXY;
+
+				if(hitLeft) hitXY = { x: plateform.getX(), y: yA };
+				if(hitRight) hitXY = { x: plateform.getHitBoxX(), y: yB };
+				if(hitBottom) hitXY = { x: xA, y: plateform.getY() };
+				if(hitTop) hitXY = { x: xB, y: plateform.getHitBoxY() };
+
+				if(hitLeft || hitRight || hitBottom || hitTop) {
+					let distance = getDistanceBetweenPoints(path.handPos, hitXY);
+					if(Common.EnableLogs) data.impacts.push(hitXY);
+					if(data.distance === null || distance.length < data.distance) {
+						data.distance = distance.length;
+						data.hitAt = hitXY;
+					}
+				}
+			}
+		});
+
+		return data.hitAt === null ? null : data;
+	}
+
 	getOtherPlayers() {
 		return Common.getElementsOfConstructor("Player").filter(player => {
 			return player.getUniqueID() !== this.getUniqueID();
@@ -362,6 +451,21 @@ class Handler {
 
 	ignoreNextSocket() {
 		this.nextSocketIgnored = true;
+	}
+
+	getDataObject() {
+		if(this.is("Player")) {
+			return {
+				uniqueID: this.getUniqueID(),
+				socketID: this.getId(),
+				speed: this.getSpeed(),
+				name: this.getName(),
+				position: this.getPosition(),
+				health: this.getHealth(),
+				vitality: this.getVitality()
+				// jumpH: this.jump
+			};
+		}
 	}
 
 	sendSocket(data, force = false) {

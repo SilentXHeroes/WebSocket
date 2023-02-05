@@ -8,6 +8,7 @@ class Player extends Entity {
 
 		if(typeof player.speed !== 'undefined') speed = player.speed;
 		if(typeof player.jumpH !== 'undefined') jumpH = player.jumpH;
+		if(typeof player.uniqueID !== "undefined") this.setUniqueID(player.uniqueID);
 
 		this.socketID = player.socketID;
 		this.name = player.name;
@@ -110,7 +111,9 @@ class Player extends Entity {
 			}
 		}
 		else if(e.keyCode === 32) {
-			this.weapon.setFire(e.type === 'keydown');
+			if(this.isArmed()) {
+				this.getWeapon().setFire(e.type === 'keydown');
+			}
 		}
 		else if(e.keyCode === 38 || e.keyCode === 90) {
 			this.jump(e.type === 'keydown');

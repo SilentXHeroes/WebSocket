@@ -61,8 +61,6 @@ class Weapon extends Handler {
 	fire(type) {
 		if(type !== this.gunType) return;
 
-		this.carrier.setAim(this.setAim());
-
 		Common.newElement('Bullet', this.carrier, 7, 10);
 
 		this.sendSocket({ action: "fire", aim: this.getAim() });
@@ -103,6 +101,14 @@ class Weapon extends Handler {
 				x: line.diff.x / step,
 				y: line.diff.y / step
 			},
+			comparer: {
+				x: line.diff.x < 0 ? -1 : 1,
+				y: line.diff.y < 0 ? -1 : 1
+			},
+			toTop: line.diff.y >= 0,
+			toBottom: line.diff.y < 0,
+			toLeft: line.diff.x < 0,
+			toRight: line.diff.x >= 0,
 			line: line,
 			fx: line.Fx,
 			fy: line.Fy
@@ -127,21 +133,29 @@ class Weapon extends Handler {
 	printAim() {
 		if(this.isUnused() || typeof this.getAim() === "undefined" || Common.Sockets.enableAim === false) return;
 
-		// Common.getElementsOfConstructor('Plateform').forEach(x => x.setColor('lightgreen'));
-
-		let handsPos = this.getCarrier().getHandsPos();
 		let aim = this.getAim();
+		let hit = this.collidesPlateform(aim, this.getCarrier());
+		let handsPos = this.getCarrier().getHandsPos();
+		let maxY = aim.toTop ? Common.canvas.height : 0;
+		
+		let coordinates = { x: aim.fy(maxY), y: maxY };
+		if(hit) coordinates = hit.hitAt;
 
 		begin();
 		move(handsPos.x, handsPos.y);
 		strokeColor('red');
-		line(aim.mouse.x, aim.mouse.y, 2);
+		line(coordinates.x, coordinates.y, 2);
 		stroke();
 
-		begin();
-		bg('red');
-		circle(aim.mouse.x, aim.mouse.y, 7);
-		fill();
+		if(hit) {
+			begin();
+			bg('red');
+			circle(hit.hitAt.x, hit.hitAt.y, 7);
+			fill();
+			fontSize(15);
+			align("center");
+			// text(`${hit.hitAt.x} ; ${hit.hitAt.y}`, hit.hitAt.x - 3.5, hit.hitAt.y + 10);
+		}
 	}
 
 	printPointer() {
@@ -165,7 +179,7 @@ class Weapon extends Handler {
 		if(this.isUsed()) {
 			if(Common.updateFrame) this.rapidFire();
 			this.printAim();
-			this.printPointer();
+			// this.printPointer();
 		}
 	}
 }

@@ -150,6 +150,17 @@ io.on('connection', (socket, request) => {
 				    [ 500, 400 ]
 				]
 			},
+			{
+				id: newUniqueID(),
+				shape: "dots",
+				dots: [
+					[ 900, 600 ],
+					[ 1200, 700 ],
+					[ 1500, 600 ],
+					[ 1500, 590 ],
+					[ 900, 590 ]
+				]
+			}
 		];
 	}
 console.log(players);
